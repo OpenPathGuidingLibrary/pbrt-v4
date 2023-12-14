@@ -3619,7 +3619,7 @@ void FunctionIntegrator::Render() {
                 }
             });
         }
-
+        
         // Compute average MSE/variance
         if (reportResult) {
             double sumSE = 0;
@@ -3707,7 +3707,7 @@ std::unique_ptr<Integrator> Integrator::Create(
 
 #ifdef PBRT_WITH_PATH_GUIDING
 // GuidedPathIntegrator Method Definitions
-GuidedPathIntegrator::GuidedPathIntegrator(int maxDepth, int minRRDepth, bool useNEE, bool enableGuiding, const GuidingType surfaceGuidingType, const RGBColorSpace *colorSpace, Camera camera, Sampler sampler,
+GuidedPathIntegrator::GuidedPathIntegrator(int maxDepth, int minRRDepth, bool useNEE, bool enableGuiding, const GuidingType surfaceGuidingType, const bool knnLookup, const RGBColorSpace *colorSpace, Camera camera, Sampler sampler,
                                Primitive aggregate, std::vector<Light> lights,
                                const std::string &lightSampleStrategy, bool regularize)
     : RayIntegrator(camera, sampler, aggregate, lights),
@@ -3716,6 +3716,7 @@ GuidedPathIntegrator::GuidedPathIntegrator(int maxDepth, int minRRDepth, bool us
       useNEE(useNEE),
       enableGuiding(enableGuiding),
       surfaceGuidingType(surfaceGuidingType),
+      knnLookup(knnLookup),
       colorSpace(colorSpace),
       lightSampler(LightSampler::Create(lightSampleStrategy, lights, Allocator())),
       regularize(regularize) {
@@ -3728,13 +3729,9 @@ GuidedPathIntegrator::GuidedPathIntegrator(int maxDepth, int minRRDepth, bool us
             std::cout<< "\t lightSampleStrategy = " << lightSampleStrategy << std::endl;
             std::cout<< "\t regularize = " << regularize << std::endl;
         guiding_device = new openpgl::cpp::Device(PGL_DEVICE_TYPE_CPU_4);
-        //pglFieldArgumentsSetDefaults(guiding_fieldSettings,PGL_SPATIAL_STRUCTURE_KDTREE, PGL_DIRECTIONAL_DISTRIBUTION_VMM);
-        pglFieldArgumentsSetDefaults(guiding_fieldSettings,PGL_SPATIAL_STRUCTURE_KDTREE, PGL_DIRECTIONAL_DISTRIBUTION_PARALLAX_AWARE_VMM);
-        //pglFieldArgumentsSetDefaults(guiding_fieldSettings,PGL_SPATIAL_STRUCTURE_KDTREE, PGL_DIRECTIONAL_DISTRIBUTION_QUADTREE);
-        guiding_fieldSettings.deterministic = true;
+        guiding_fieldConfig.Init(PGL_SPATIAL_STRUCTURE_KDTREE, PGL_DIRECTIONAL_DISTRIBUTION_PARALLAX_AWARE_VMM);
 
-        //((PGLKDTreeArguments*)guiding_fieldSettings.spatialSturctureArguments)->knnLookup = false;
-        guiding_field = new openpgl::cpp::Field(guiding_device, guiding_fieldSettings);
+        guiding_field = new openpgl::cpp::Field(guiding_device, guiding_fieldConfig);
         guiding_sampleStorage = new openpgl::cpp::SampleStorage();
 
         guiding_threadPathSegmentStorage = new ThreadLocal<openpgl::cpp::PathSegmentStorage*>(
@@ -3754,7 +3751,7 @@ void GuidedPathIntegrator::PostProcessWave() {
     std::cout << "GuidedPathIntegrator::PostProcessWave()" << std::endl;
     if(guideTraining) {
         const size_t numValidSamples = guiding_sampleStorage->GetSizeSurface() + guiding_sampleStorage->GetSizeVolume();
-        std::cout << "numValidSamples: " << numValidSamples << std::endl;
+        std::cout << "Guiding Iteration: "<< guiding_field->GetIteration() << "\t numValidSamples: " << numValidSamples << std::endl;
         if(numValidSamples > 128) {
             guiding_field->Update(*guiding_sampleStorage);
             if(guiding_field->GetIteration() >= guideNumTrainingWaves) {
@@ -3762,7 +3759,7 @@ void GuidedPathIntegrator::PostProcessWave() {
             }
             guiding_sampleStorage->Clear();
         }
-    }
+            }
     guiding_sampleStorage->Clear();
 }
 
@@ -3779,7 +3776,7 @@ SampledSpectrum GuidedPathIntegrator::Li(RayDifferential ray, SampledWavelengths
     SampledSpectrum L(0.f), beta(1.f);
     SampledSpectrum bsdfWeight(1.f);
     int depth = 0;
-
+    
     GuidedBSDF gbsdf(&sampler, guiding_field, surfaceSamplingDistribution, enableGuiding, surfaceGuidingType);
     float rr_correction = 1.0f;
 
@@ -3828,7 +3825,7 @@ SampledSpectrum GuidedPathIntegrator::Li(RayDifferential ray, SampledWavelengths
                                  areaLight.PDF_Li(prevIntrCtx, ray.d, true);
                 Float w_l = useNEE ? PowerHeuristic(1, misPDF, 1, lightPDF) : 1.0f;
                 L += beta * w_l * Le;
-                w = w_l;
+                                w = w_l;
                 add_direct_contribution = true;
             }
         }
@@ -3885,10 +3882,14 @@ SampledSpectrum GuidedPathIntegrator::Li(RayDifferential ray, SampledWavelengths
         }
 
         ++totalBSDFs;
-
+        
         // Guiding - Check if we can use guiding. If so intialize the guiding distribution
-        Float v = sampler.Get1D();
+        Float v = knnLookup ? sampler.Get1D(): -1.0f;
         gbsdf.init(&bsdf, ray, si, v);
+
+        if (depth == 1 && visibleSurf && guiding_field->GetIteration() > 0) {
+            visibleSurf->guidingData.id = gbsdf.getId();
+        }
 
         // Sample direct illumination from the light sources
         if (useNEE && IsNonSpecular(bsdf.Flags())) {
@@ -4011,11 +4012,12 @@ std::unique_ptr<GuidedPathIntegrator> GuidedPathIntegrator::Create(
     int minRRDepth = parameters.GetOneInt("minrrdepth", 1);
     bool useNEE = parameters.GetOneBool("usenee", true);
     bool enableGuiding = parameters.GetOneBool("enableguiding", true);
+    bool knnLookup = parameters.GetOneBool("knnlookup", true);
     std::string strSurfaceGuidingType = parameters.GetOneString("surfaceguidingtype", "ris");
     GuidingType surfaceGuidingType = strSurfaceGuidingType == "mis" ? EGuideMIS : EGuideRIS;
-    std::string lightStrategy = parameters.GetOneString("lightsampler", "bvh");
+        std::string lightStrategy = parameters.GetOneString("lightsampler", "bvh");
     bool regularize = parameters.GetOneBool("regularize", false);
-    return std::make_unique<GuidedPathIntegrator>(maxDepth, minRRDepth, useNEE, enableGuiding, surfaceGuidingType, colorSpace, camera, sampler, aggregate, lights,
+    return std::make_unique<GuidedPathIntegrator>(maxDepth, minRRDepth, useNEE, enableGuiding, surfaceGuidingType, knnLookup, colorSpace, camera, sampler, aggregate, lights,
                                             lightStrategy, regularize);
 }
 
@@ -4047,10 +4049,9 @@ GuidedVolPathIntegrator::GuidedVolPathIntegrator(int maxDepth, int minRRDepth, b
             std::cout<< "\t regularize = " << regularize << std::endl;
         
             guiding_device = new openpgl::cpp::Device(PGL_DEVICE_TYPE_CPU_4);
-            pglFieldArgumentsSetDefaults(guiding_fieldSettings,PGL_SPATIAL_STRUCTURE_KDTREE, PGL_DIRECTIONAL_DISTRIBUTION_PARALLAX_AWARE_VMM);
-            guiding_fieldSettings.deterministic = true;
-            //((PGLKDTreeArguments*)guiding_fieldSettings.spatialSturctureArguments)->knnLookup = false;
-            guiding_field = new openpgl::cpp::Field(guiding_device, guiding_fieldSettings);
+            guiding_fieldConfig.Init(PGL_SPATIAL_STRUCTURE_KDTREE, PGL_DIRECTIONAL_DISTRIBUTION_PARALLAX_AWARE_VMM);
+
+            guiding_field = new openpgl::cpp::Field(guiding_device, guiding_fieldConfig);
             guiding_sampleStorage = new openpgl::cpp::SampleStorage();
 
             guiding_threadPathSegmentStorage = new ThreadLocal<openpgl::cpp::PathSegmentStorage*>(
@@ -4074,7 +4075,7 @@ void GuidedVolPathIntegrator::PostProcessWave() {
 /* */
     if(guideTraining) {
         const size_t numValidSamples = guiding_sampleStorage->GetSizeSurface() + guiding_sampleStorage->GetSizeVolume();
-        std::cout << "numValidSamples: " << numValidSamples << "\t surfaceSamples: " << guiding_sampleStorage->GetSizeSurface() << "\t volumeSamples: " << guiding_sampleStorage->GetSizeVolume() << std::endl;
+        std::cout << "Guiding Iteration: "<< guiding_field->GetIteration() << "\t numValidSamples: " << numValidSamples << "\t surfaceSamples: " << guiding_sampleStorage->GetSizeSurface() << "\t volumeSamples: " << guiding_sampleStorage->GetSizeVolume() << std::endl;
         /* */
         //guiding_sampleStorage->Store("coronabench_sample_storage_small-" +  std::to_string(guiding_field->GetIteration()) + ".st");
         //guiding_field->Store("coronabench_guiding_field_small-" +  std::to_string(guiding_field->GetIteration()) + ".gf");
@@ -4345,7 +4346,7 @@ SampledSpectrum GuidedVolPathIntegrator::Li(RayDifferential ray, SampledWaveleng
         // Terminate path if maximum depth reached
         if (depth++ >= maxDepth)
             break;
-
+            
         ++surfaceInteractions;
         // Possibly regularize the BSDF
         if (regularize && anyNonSpecularBounces) {
@@ -4366,7 +4367,7 @@ SampledSpectrum GuidedVolPathIntegrator::Li(RayDifferential ray, SampledWaveleng
             // Guiding - add scattered contribution from NEE
             guiding_addScatteredDirectLight(pathSegmentData, Ld, lambda, colorSpace);
         }
-
+        
         // Sample BSDF to get new path direction
         //Vector3f wo = isect.wo;  // Note isect.wo does an explicit Normalize step.
         Vector3f wo = -ray.d; // Use -ray.d to be on par to GuidedPath
@@ -4474,7 +4475,7 @@ SampledSpectrum GuidedVolPathIntegrator::Li(RayDifferential ray, SampledWaveleng
         if (!beta)
             break;
         SampledSpectrum rrBeta = beta * etaScale / r_u.Average();
-        PBRT_DBG("%s\n",
+                PBRT_DBG("%s\n",
                  StringPrintf("etaScale %f -> rrBeta %s", etaScale, rrBeta).c_str());
         Float q = 0.f;
         if (rrBeta.MaxComponentValue() < 1 && depth > minRRDepth) {
