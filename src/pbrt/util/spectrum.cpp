@@ -96,6 +96,14 @@ PiecewiseLinearSpectrum::PiecewiseLinearSpectrum(pstd::span<const Float> l,
         CHECK_LT(lambdas[i], lambdas[i + 1]);
 }
 
+#if defined(PBRT_RGB_RENDERING)
+RGBUnboundedSpectrum PiecewiseLinearSpectrum::ToRGBUnbounded(const RGBColorSpace &cs) const {
+                XYZ xyz = SpectrumToXYZ(this);
+                RGB rgb = cs.ToRGB(xyz);
+    return RGBUnboundedSpectrum(cs, rgb);
+}
+#endif
+
 std::string PiecewiseLinearSpectrum::ToString() const {
     std::string name = FindMatchingNamedSpectrum(this);
     if (!name.empty())
@@ -166,9 +174,23 @@ PiecewiseLinearSpectrum *PiecewiseLinearSpectrum::FromInterleaved(
     return spec;
 }
 
+#if defined(PBRT_RGB_RENDERING)
+RGBUnboundedSpectrum BlackbodySpectrum::ToRGBUnbounded(const RGBColorSpace &cs) const {
+                XYZ xyz = SpectrumToXYZ(this);
+                RGB rgb = cs.ToRGB(xyz);
+    return RGBUnboundedSpectrum(cs, rgb);
+}
+#endif
+
 std::string BlackbodySpectrum::ToString() const {
     return StringPrintf("[ BlackbodySpectrum T: %f ]", T);
 }
+
+#if defined(PBRT_RGB_RENDERING)
+RGBUnboundedSpectrum ConstantSpectrum::ToRGBUnbounded(const RGBColorSpace &cs) const {
+    return RGBUnboundedSpectrum(cs, RGB(c, c, c));
+}
+#endif
 
 SampledSpectrum ConstantSpectrum::Sample(const SampledWavelengths &) const {
     return SampledSpectrum(c);
@@ -177,6 +199,14 @@ SampledSpectrum ConstantSpectrum::Sample(const SampledWavelengths &) const {
 std::string ConstantSpectrum::ToString() const {
     return StringPrintf("[ ConstantSpectrum c: %f ]", c);
 }
+
+#if defined(PBRT_RGB_RENDERING)
+RGBUnboundedSpectrum DenselySampledSpectrum::ToRGBUnbounded(const RGBColorSpace &cs) const {
+                XYZ xyz = SpectrumToXYZ(this);
+                RGB rgb = cs.ToRGB(xyz);
+    return RGBUnboundedSpectrum(cs, rgb);
+}
+#endif
 
 std::string DenselySampledSpectrum::ToString() const {
     std::string s = StringPrintf("[ DenselySampledSpectrum lambda_min: %d lambda_max: %d "
@@ -245,6 +275,12 @@ RGBAlbedoSpectrum::RGBAlbedoSpectrum(const RGBColorSpace &cs, RGB rgb) {
 #endif
 }
 
+#if defined(PBRT_RGB_RENDERING)
+RGBUnboundedSpectrum RGBAlbedoSpectrum::ToRGBUnbounded(const RGBColorSpace &cs) const {
+    return RGBUnboundedSpectrum(cs, rgb);
+}
+#endif
+
 RGBUnboundedSpectrum::RGBUnboundedSpectrum(const RGBColorSpace &cs, RGB rgb) {
 #if !defined(PBRT_RGB_RENDERING)
     Float m = std::max({rgb.r, rgb.g, rgb.b});
@@ -267,6 +303,12 @@ RGBIlluminantSpectrum::RGBIlluminantSpectrum(const RGBColorSpace &cs, RGB rgb)
     this->rgb = rgb;
 #endif
 }
+
+#if defined(PBRT_RGB_RENDERING)
+RGBUnboundedSpectrum RGBIlluminantSpectrum::ToRGBUnbounded(const RGBColorSpace &cs) const {
+    return RGBUnboundedSpectrum(cs, rgb);
+}
+#endif
 
 std::string RGBAlbedoSpectrum::ToString() const {
 #if !defined(PBRT_RGB_RENDERING)
