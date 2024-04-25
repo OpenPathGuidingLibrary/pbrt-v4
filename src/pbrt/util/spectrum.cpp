@@ -261,8 +261,12 @@ Float SampledSpectrum::y(const SampledWavelengths &lambda) const {
 
 RGB SampledSpectrum::ToRGB(const SampledWavelengths &lambda,
                            const RGBColorSpace &cs) const {
+#if !defined(PBRT_RGB_RENDERING)
     XYZ xyz = ToXYZ(lambda);
     return cs.ToRGB(xyz);
+#else
+    return RGB(values[0], values[1], values[2]);
+#endif
 }
 
 RGBAlbedoSpectrum::RGBAlbedoSpectrum(const RGBColorSpace &cs, RGB rgb) {
