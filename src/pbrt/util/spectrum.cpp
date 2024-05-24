@@ -309,6 +309,11 @@ RGBIlluminantSpectrum::RGBIlluminantSpectrum(const RGBColorSpace &cs, RGB rgb)
 }
 
 #if defined(PBRT_RGB_RENDERING)
+RGBIlluminantSpectrum::RGBIlluminantSpectrum(const RGBIlluminantSpectrum &s, Allocator alloc)
+{
+    this->rgb = s.rgb;
+}
+
 RGBUnboundedSpectrum RGBIlluminantSpectrum::ToRGBUnbounded(const RGBColorSpace &cs) const {
     return RGBUnboundedSpectrum(cs, rgb);
 }
