@@ -319,12 +319,13 @@ class GuidedPathIntegrator : public RayIntegrator {
     openpgl::cpp::Field* guiding_field {nullptr};
     openpgl::cpp::Device* guiding_device {nullptr};
     //ThreadLocal<Allocator> threadPathSegmentStorage;
-
+#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
     openpgl::cpp::util::ImageSpaceGuidingBuffer* imageSpaceGuidingBuffer;
 
     bool imageSpaceGuidingBufferReady {false};
     bool calculateImageSpaceGuidingBuffer {false};
     int imageSpaceGuidingBufferUpdateWave {0};
+#endif
     int waveCounter {0};
 };
 #endif
@@ -465,11 +466,13 @@ class GuidedVolPathIntegrator : public RayIntegrator {
     openpgl::cpp::Field* guiding_field {nullptr};
     openpgl::cpp::Device* guiding_device {nullptr};
 
-    openpgl::cpp::util::ImageSpaceGuidingBuffer* imageSpaceGuidingBuffer{nullptr};
+#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+    openpgl::cpp::util::ImageSpaceGuidingBuffer* imageSpaceGuidingBuffer;
 
     bool imageSpaceGuidingBufferReady {false};
     bool calculateImageSpaceGuidingBuffer {false};
     int imageSpaceGuidingBufferUpdateWave {0};
+#endif
     int waveCounter {0};
 };
 #endif
