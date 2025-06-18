@@ -57,6 +57,7 @@ enum GuidingType{
 enum GuidingDistributionType{
     EGuideDistributionPAVMM,
     EGuideDistributionDQT,
+    EGuideDistributionPAVMMV2,
 };
 
 struct GuidedBSDF{

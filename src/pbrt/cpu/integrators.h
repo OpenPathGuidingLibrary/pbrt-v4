@@ -253,8 +253,6 @@ class GuidedPathIntegrator : public RayIntegrator {
 
         bool guideRR {false};
 
-        int trainingSamples {128};
-
         GuidingDistributionType distributionType {EGuideDistributionPAVMM};
 
         GuidingType surfaceGuidingType {EGuideRIS};
@@ -403,6 +401,8 @@ class GuidedVolPathIntegrator : public RayIntegrator {
         bool guideRR {false};
         bool guideSurfaceRR {true};
         bool guideVolumeRR {true};
+
+        GuidingDistributionType distributionType {EGuideDistributionPAVMM};
 
         GuidingType surfaceGuidingType {EGuideRIS};
         GuidingType volumeGuidingType {EGuideRIS};
