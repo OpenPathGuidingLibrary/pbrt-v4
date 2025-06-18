@@ -166,7 +166,7 @@ endif()
 # Open Image Denoise
 if (PBRT_WITH_OIDN)
 include(ExternalProject)
-  find_package (OpenImageDenoise 2.2.0)
+  find_package (OpenImageDenoise 2.3.0)
 
   if (OIDN_FOUND)
     message (STATUS "Found Open Image Denoise version ${OIDN_VERSION}")
@@ -251,11 +251,14 @@ endif()
 ###########################################################################
 # Open PGL
 if (PBRT_WITH_PATH_GUIDING)
+  find_package (openpgl CONFIG)
 
-  find_package (openpgl)
-
-  if (OPENPGL_FOUND)
+  if (openpgl_FOUND)
     message (STATUS "Found OpenPGL version ${OPENPGL_VERSION}")
+    get_target_property(OPENPGL_LIBRARIES openpgl::openpgl LOCATION)
+    get_target_property(OPENPGL_INCLUDE_DIR openpgl::openpgl INTERFACE_INCLUDE_DIRECTORIES)
+    set(OPENPGL_LIBRARIES ${OPENPGL_LIBRARIES} tbb PARENT_SCOPE)
+    set(OPENPGL_INCLUDE_DIR ${OPENPGL_INCLUDE_DIR} PARENT_SCOPE)
   else ()
     message (STATUS "OpenPGL not found; building it from scratch.")
 
@@ -287,7 +290,7 @@ if (PBRT_WITH_PATH_GUIDING)
     #set(BUILD_STATIC ON CACHE BOOL "" FORCE)
     #add_subdirectory (openpgl/superbuild)
     #set_property (TARGET ep_openpgl PROPERTY FOLDER "ext/openpgl")
-    
+    set (OPENPGL_DEP True PARENT_SCOPE)
     set (OPENPGL_INCLUDE_DIR
       ${CMAKE_INSTALL_PREFIX}/include
       PARENT_SCOPE

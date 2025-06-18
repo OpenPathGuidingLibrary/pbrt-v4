@@ -947,7 +947,9 @@ link_directories(${CMAKE_INSTALL_PREFIX}/lib)
 if(PBRT_WITH_PATH_GUIDING)
   set (ALL_PBRT_LIBS ${ALL_PBRT_LIBS}
     ${OPENPGL_LIBRARIES})
-  add_dependencies(pbrt_lib OpenPGL)
+  if(OPENPGL_DEP)
+    add_dependencies(pbrt_lib OpenPGL)
+  endif()
 endif()
 
 if(PBRT_WITH_OIDN)
