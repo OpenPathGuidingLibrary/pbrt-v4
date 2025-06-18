@@ -253,6 +253,10 @@ class GuidedPathIntegrator : public RayIntegrator {
 
         bool guideRR {false};
 
+        int trainingSamples {128};
+
+        GuidingDistributionType distributionType {EGuideDistributionPAVMM};
+
         GuidingType surfaceGuidingType {EGuideRIS};
         float guideSurfaceProbability {0.5f};
         bool knnLookup {true};

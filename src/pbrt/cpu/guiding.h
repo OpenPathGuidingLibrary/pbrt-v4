@@ -54,6 +54,11 @@ enum GuidingType{
     EGuideRIS
 };
 
+enum GuidingDistributionType{
+    EGuideDistributionPAVMM,
+    EGuideDistributionDQT,
+};
+
 struct GuidedBSDF{
 
     struct RISSample{

@@ -47,6 +47,8 @@
 
 //#define VOLUME_ABSORB
 
+#define GUIDED_RR
+
 namespace pbrt {
 
 STAT_COUNTER("Integrator/Camera rays traced", nCameraRays);
@@ -3755,7 +3757,11 @@ GuidedPathIntegrator::GuidedPathIntegrator(const int maxDepth, const int minRRDe
             std::cout<< "\t lightSampleStrategy = " << lightSampleStrategy << std::endl;
             std::cout<< "\t regularize = " << regularize << std::endl;
         guiding_device = new openpgl::cpp::Device(PGL_DEVICE_TYPE_CPU_4);
-        guiding_fieldConfig.Init(PGL_SPATIAL_STRUCTURE_KDTREE, PGL_DIRECTIONAL_DISTRIBUTION_PARALLAX_AWARE_VMM);
+        if (guideSettings.distributionType == EGuideDistributionPAVMM) {
+            guiding_fieldConfig.Init(PGL_SPATIAL_STRUCTURE_KDTREE, PGL_DIRECTIONAL_DISTRIBUTION_PARALLAX_AWARE_VMM);
+        } else if(guideSettings.distributionType == EGuideDistributionDQT) {
+            guiding_fieldConfig.Init(PGL_SPATIAL_STRUCTURE_KDTREE, PGL_DIRECTIONAL_DISTRIBUTION_QUADTREE);
+        }
 
         if (guideSettings.loadGuidingCache) {
             if(FileExists(guideSettings.guidingCacheFileName)) {
@@ -3771,7 +3777,7 @@ GuidedPathIntegrator::GuidedPathIntegrator(const int maxDepth, const int minRRDe
         guiding_sampleStorage = new openpgl::cpp::SampleStorage();
 
         guiding_threadPathSegmentStorage = new ThreadLocal<openpgl::cpp::PathSegmentStorage*>(
-        [this]() { openpgl::cpp::PathSegmentStorage* pss = new openpgl::cpp::PathSegmentStorage(true);
+        [this]() { openpgl::cpp::PathSegmentStorage* pss = new openpgl::cpp::PathSegmentStorage();
                    size_t maxPathSegments = this->maxDepth >= 1 ? this->maxDepth*2 : 30;
                    pss->Reserve(maxPathSegments);
                    pss->SetMaxDistance(guidingInfiniteLightDistance);
@@ -4001,12 +4007,13 @@ SampledSpectrum GuidedPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sa
         // Guiding - Check if we can use guiding. If so intialize the guiding distribution
         Float v = guideSettings.knnLookup ? sampler.Get1D(): -1.0f;
         gbsdf.init(&bsdf, ray, si, v);
+#ifdef GUIDED_RR
         adjointEstimate = gbsdf.OutgoingRadiance(-ray.d);
 
         if (guideRR && depth > minRRDepth) {
             survivalProb = specularBounce ? 0.95 : openpgl::cpp::util::GuidedRussianRoulette(OPGLVector3f(beta), OPGLVector3f(adjointEstimate), OPGLVector3f(pixelContributionEstimate), 0.1f);
         }
-
+#endif
         if (depth == 1 && visibleSurf && guiding_field->GetIteration() > 0) {
             visibleSurf->guidingData.id = gbsdf.getId();
         }
@@ -4053,7 +4060,11 @@ SampledSpectrum GuidedPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sa
 
         if (!guideRR && depth > minRRDepth) {
             const SampledSpectrum rrThroughputWeight = beta * rr_correction * etaScale;
+#ifdef GUIDED_RR
             survivalProb = specularBounce ? 0.95 : openpgl::cpp::util::StandardThroughputBasedRussianRoulette(OPGLVector3f(rrThroughputWeight));
+#else
+            survivalProb = specularBounce ? 0.95 : std::max(0.f, std::min(1.f, rrThroughputWeight.MaxComponentValue()));
+#endif
         }
         if (survivalProb < 1 && depth > minRRDepth) {
             Float q = std::max<Float>(0, 1 - survivalProb);
@@ -4153,6 +4164,15 @@ std::unique_ptr<GuidedPathIntegrator> GuidedPathIntegrator::Create(
     settings.guideSurface = parameters.GetOneBool("surfaceguiding", true);
     settings.guideRR = parameters.GetOneBool("rrguiding", false);
 
+    settings.trainingSamples = parameters.GetOneInt("trainingSamples", 128);
+
+    std::string strGuidingDistributionType = parameters.GetOneString("distribution", "PAVMM");
+    if(strGuidingDistributionType == "PAVMM") {
+        settings.distributionType = EGuideDistributionPAVMM;
+    } else if (strGuidingDistributionType == "DQT") {
+        settings.distributionType = EGuideDistributionDQT;
+    }
+
     settings.knnLookup = parameters.GetOneBool("knnlookup", true);
     std::string strSurfaceGuidingType = parameters.GetOneString("surfaceguidingtype", "ris");
     settings.surfaceGuidingType = strSurfaceGuidingType == "mis" ? EGuideMIS : EGuideRIS;
@@ -4215,7 +4235,7 @@ GuidedVolPathIntegrator::GuidedVolPathIntegrator(int maxDepth, int minRRDepth, b
         guiding_sampleStorage = new openpgl::cpp::SampleStorage();
 
         guiding_threadPathSegmentStorage = new ThreadLocal<openpgl::cpp::PathSegmentStorage*>(
-        [this]() { openpgl::cpp::PathSegmentStorage* pss = new openpgl::cpp::PathSegmentStorage(true);
+        [this]() { openpgl::cpp::PathSegmentStorage* pss = new openpgl::cpp::PathSegmentStorage();
                 size_t maxPathSegments = this->maxDepth >= 1 ? this->maxDepth*2 : 30;
                 pss->Reserve(maxPathSegments);
                 pss->SetMaxDistance(guidingInfiniteLightDistance);
@@ -4456,13 +4476,15 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
 
                             Float v = sampler.Get1D();
                             gphase.init(&intr.phase, p, ray.d, v);
+#ifdef GUIDED_RR
                             if(guideRR && guideVolumeRR) {
                                 adjointEstimate = gphase.InscatteredRadiance(-ray.d, true);
                             }
-
+#endif
                             // calculate survival property
                             survivalProb = 1.0f;
                             if (depth > minRRDepth) {
+#ifdef GUIDED_RR
                                 if (guideRR) {
                                     if(guideVolumeRR){
                                         survivalProb = specularBounce ? 0.95 : openpgl::cpp::util::GuidedRussianRoulette(OPGLVector3f(beta), OPGLVector3f(adjointEstimate), OPGLVector3f(pixelContributionEstimate), 0.1f);
@@ -4473,6 +4495,10 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
                                     const SampledSpectrum rrThroughputWeight = (beta / r_u.Average()) * rr_correction;
                                     survivalProb = specularBounce ? 0.95 : openpgl::cpp::util::StandardThroughputBasedRussianRoulette(OPGLVector3f(rrThroughputWeight));        
                                 }
+#else
+                                const SampledSpectrum rrThroughputWeight = (beta / r_u.Average()) * rr_correction;
+                                survivalProb = specularBounce ? 0.95 : std::max(0.f, std::min(1.f, rrThroughputWeight.MaxComponentValue()));
+#endif
                             }
 
                             // Preform next-event estimation before RR
@@ -4659,6 +4685,7 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
         // Guiding - Check if we can use guiding. If so intialize the guiding distribution
         Float v = sampler.Get1D();
         gbsdf.init(&bsdf, ray, si, v);
+#ifdef GUIDED_RR
         if(guideRR && guideSurfaceRR) {
             adjointEstimate = gbsdf.OutgoingRadiance(-ray.d);
         }
@@ -4670,7 +4697,7 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
                 survivalProb = 1.f;
             }
         }
-
+#endif
         if (depth == 1 && visibleSurf && guiding_field->GetIteration() > 0) {
             visibleSurf->guidingData.id = gbsdf.getId();
         }
@@ -4794,7 +4821,11 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
         //         StringPrintf("etaScale %f -> rrBeta %s", etaScale, rrBeta).c_str());
         if (!guideRR && depth > minRRDepth) {
             const SampledSpectrum rrThroughputWeight = (beta / r_u.Average()) * rr_correction * etaScale;
+#ifdef GUIDED_RR
             survivalProb = specularBounce ? 0.95 : openpgl::cpp::util::StandardThroughputBasedRussianRoulette(OPGLVector3f(rrThroughputWeight));
+#else
+            survivalProb = specularBounce ? 0.95 : std::max(0.f, std::min(1.f, rrThroughputWeight.MaxComponentValue()));
+#endif
         }
         if (survivalProb < 1 && depth > minRRDepth) {
             Float q = std::max<Float>(0, 1 - survivalProb);
