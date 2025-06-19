@@ -203,11 +203,25 @@ class TrowbridgeReitzDistribution {
     static Float RoughnessToAlpha(Float roughness) { return std::sqrt(roughness); }
 
     PBRT_CPU_GPU
-    void Regularize() {
+    void Regularize(const Float regularizationGamma, const Float accumulatedRoughness) {
+        // Original PBRT regularization
+        /*
         if (alpha_x < 0.3f)
             alpha_x = Clamp(2 * alpha_x, 0.1f, 0.3f);
         if (alpha_y < 0.3f)
             alpha_y = Clamp(2 * alpha_y, 0.1f, 0.3f);
+        */
+        
+        // Naive implementation of "Optimized Path Space Regularization" (Eq 11.)
+        Float _accumulatedRoughness = accumulatedRoughness > 0.f ?  std::sqrt(accumulatedRoughness) : 0.f;
+        Float _alpha_x = alpha_x > 0.f ? std::sqrt(alpha_x) : 0.f;
+        Float _alpha_y = alpha_y > 0.f ? std::sqrt(alpha_y) : 0.f;
+
+        _alpha_x = (1.f - ((1.f - _alpha_x) * (1.f - regularizationGamma * _accumulatedRoughness)));
+        _alpha_y = (1.f - ((1.f - _alpha_y) * (1.f - regularizationGamma * _accumulatedRoughness)));
+
+        alpha_x = _alpha_x * _alpha_x;
+        alpha_y = _alpha_y * _alpha_y;
     }
 
   private:

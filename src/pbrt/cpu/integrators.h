@@ -267,6 +267,8 @@ class GuidedPathIntegrator : public RayIntegrator {
         bool storeContributionEstimate {false};
         bool loadContributionEstimate {false};
         std::string contributionEstimateFileName {""};
+
+        Float regularizationGamma {0.1f};
     };
 
   public:
@@ -418,6 +420,8 @@ class GuidedVolPathIntegrator : public RayIntegrator {
         bool storeContributionEstimate {false};
         bool loadContributionEstimate {false};
         std::string contributionEstimateFileName {""};
+
+        Float regularizationGamma {0.f};
     };
   public:
     // VolPathIntegrator Public Methods
