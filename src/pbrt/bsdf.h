@@ -144,7 +144,7 @@ class BSDF {
     }
 
     PBRT_CPU_GPU
-    void Regularize() { bxdf.Regularize(); }
+    void Regularize(const Float regularizationGamma, const Float accumulatedRoughness) { bxdf.Regularize(regularizationGamma, accumulatedRoughness); }
 
     PBRT_CPU_GPU 
     float GetEta() const { return bxdf.GetEta(); };

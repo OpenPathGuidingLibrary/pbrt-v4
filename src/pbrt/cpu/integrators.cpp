@@ -648,6 +648,9 @@ SampledSpectrum PathIntegrator::Li(Point2i pPixel, RayDifferential ray, SampledW
     bool specularBounce = false, anyNonSpecularBounces = false;
     LightSampleContext prevIntrCtx;
 
+    Float regularizationGamma = 0.f; 
+    Float accumulatedRoughness = 0.f;
+
     // Sample path from camera and accumulate radiance estimate
     while (true) {
         // Trace ray and find closest path vertex and its BSDF
@@ -723,7 +726,7 @@ SampledSpectrum PathIntegrator::Li(Point2i pPixel, RayDifferential ray, SampledW
         // Possibly regularize the BSDF
         if (regularize && anyNonSpecularBounces) {
             ++regularizedBSDFs;
-            bsdf.Regularize();
+            bsdf.Regularize(regularizationGamma, accumulatedRoughness);
         }
 
         ++totalBSDFs;
@@ -747,6 +750,8 @@ SampledSpectrum PathIntegrator::Li(Point2i pPixel, RayDifferential ray, SampledW
         pstd::optional<BSDFSample> bs = bsdf.Sample_f(wo, u, sampler.Get2D());
         if (!bs)
             break;
+
+        accumulatedRoughness = bs->sampledRoughness;
         // Update path state variables after surface scattering
         beta *= bs->f * AbsDot(bs->wi, isect.shading.n) / bs->pdf;
         p_b = bs->pdfIsProportional ? bsdf.PDF(wo, bs->wi) : bs->pdf;
@@ -971,6 +976,9 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
     int depth = 0;
     Float etaScale = 1;
 
+    Float regularizationGamma = 0.f; 
+    Float accumulatedRoughness = 0.f;
+
     LightSampleContext prevIntrContext;
 
     while (true) {
@@ -1162,7 +1170,7 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
         // Possibly regularize the BSDF
         if (regularize && anyNonSpecularBounces) {
             ++regularizedBSDFs;
-            bsdf.Regularize();
+            bsdf.Regularize(regularizationGamma, accumulatedRoughness);
         }
 
         // Sample illumination from lights to find attenuated path contribution
@@ -1178,6 +1186,8 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
         pstd::optional<BSDFSample> bs = bsdf.Sample_f(wo, u, sampler.Get2D());
         if (!bs)
             break;
+
+        accumulatedRoughness = bs->sampledRoughness;
         // Update _beta_ and rescaled path probabilities for BSDF scattering
         beta *= bs->f * AbsDot(bs->wi, isect.shading.n) / bs->pdf;
         if (bs->pdfIsProportional)
@@ -1245,7 +1255,7 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
             anyNonSpecularBounces = true;
             if (regularize) {
                 ++regularizedBSDFs;
-                Sw.Regularize();
+                Sw.Regularize(regularizationGamma, accumulatedRoughness);
             } else
                 ++totalBSDFs;
 
@@ -1257,6 +1267,8 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
             pstd::optional<BSDFSample> bs = Sw.Sample_f(pi.wo, u, sampler.Get2D());
             if (!bs)
                 break;
+            accumulatedRoughness = bs->sampledRoughness;
+
             beta *= bs->f * AbsDot(bs->wi, pi.shading.n) / bs->pdf;
             r_l = r_u / bs->pdf;
             // Don't increment depth this time...
@@ -1983,6 +1995,10 @@ int RandomWalk(const Integrator &integrator, SampledWavelengths &lambda,
     int bounces = 0;
     bool anyNonSpecularBounces = false;
     Float pdfFwd = pdf;
+
+    Float regularizationGamma = 0.f; 
+    Float accumulatedRoughness = 0.f;
+
     while (true) {
         // Attempt to create the next subpath vertex in _path_
         PBRT_DBG("%s\n", StringPrintf("Random walk. Bounces %d, beta %s, pdfFwd %f",
@@ -2107,7 +2123,7 @@ int RandomWalk(const Integrator &integrator, SampledWavelengths &lambda,
         // Possibly regularize the BSDF
         if (regularize && anyNonSpecularBounces) {
             ++regularizedBSDFs;
-            bsdf.Regularize();
+            bsdf.Regularize(regularizationGamma, accumulatedRoughness);
         }
 
         ++totalBSDFs;
@@ -2122,6 +2138,9 @@ int RandomWalk(const Integrator &integrator, SampledWavelengths &lambda,
         pstd::optional<BSDFSample> bs = bsdf.Sample_f(wo, u, sampler.Get2D(), mode);
         if (!bs)
             break;
+
+        accumulatedRoughness = bs->sampledRoughness;
+
         pdfFwd = bs->pdfIsProportional ? bsdf.PDF(wo, bs->wi, mode) : bs->pdf;
         anyNonSpecularBounces |= !bs->IsSpecular();
         beta *= bs->f * AbsDot(bs->wi, isect.shading.n) / bs->pdf;
@@ -3895,7 +3914,10 @@ SampledSpectrum GuidedPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sa
     Float misPDF, etaScale = 1;
     bool specularBounce = false, anyNonSpecularBounces = false;
     LightSampleContext prevIntrCtx;
-    
+
+    Float regularizationGamma = guideSettings.regularizationGamma; 
+    Float accumulatedRoughness = 0.f;
+
     bool add_direct_contribution = false;
     float w = 0.0f;
     // Sample path from camera and accumulate radiance estimate
@@ -4001,7 +4023,7 @@ SampledSpectrum GuidedPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sa
         // Possibly regularize the BSDF
         if (regularize && anyNonSpecularBounces) {
             ++regularizedBSDFs;
-            bsdf.Regularize();
+            bsdf.Regularize(regularizationGamma, accumulatedRoughness);
         }
 
         ++totalBSDFs;
@@ -4037,6 +4059,8 @@ SampledSpectrum GuidedPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sa
         pstd::optional<BSDFSample> bs = gbsdf.Sample_f(wo, u, sampler.Get2D());
         if (!bs)
             break;
+
+        accumulatedRoughness = bs->sampledRoughness;
 
         rr_correction *= bs->pdf / bs->bsdfPdf;
         misPDF = survivalProb * bs->misPdf;
@@ -4191,6 +4215,7 @@ std::unique_ptr<GuidedPathIntegrator> GuidedPathIntegrator::Create(
 
     std::string lightStrategy = parameters.GetOneString("lightsampler", "bvh");
     bool regularize = parameters.GetOneBool("regularize", false);
+    settings.regularizationGamma = parameters.GetOneFloat("regGamma", 0.1f);
 
     return std::make_unique<GuidedPathIntegrator>(maxDepth, minRRDepth, useNEE, settings, colorSpace, camera, sampler, aggregate, lights,
                                             lightStrategy, regularize);
@@ -4373,6 +4398,9 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
     SampledSpectrum bsdfWeight(1.f);
     bool add_direct_contribution = false;
     Float w = 0.f;
+
+    Float regularizationGamma = guideSettings.regularizationGamma; 
+    Float accumulatedRoughness = 0.f;
 
     LightSampleContext prevIntrContext;
 
@@ -4689,7 +4717,7 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
         // Possibly regularize the BSDF
         if (regularize && anyNonSpecularBounces) {
             ++regularizedBSDFs;
-            bsdf.Regularize();
+            bsdf.Regularize(regularizationGamma, accumulatedRoughness);
         }
 
         // Guiding - Check if we can use guiding. If so intialize the guiding distribution
@@ -4730,6 +4758,8 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
         pstd::optional<BSDFSample> bs = gbsdf.Sample_f(wo, u, sampler.Get2D());
         if (!bs)
             break;
+
+        accumulatedRoughness = bs->sampledRoughness;
 
         rr_correction *= bs->pdf / bs->bsdfPdf;
         misPDF = bs->misPdf;
@@ -4803,7 +4833,7 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
             anyNonSpecularBounces = true;
             if (regularize) {
                 ++regularizedBSDFs;
-                Sw.Regularize();
+                Sw.Regularize(regularizationGamma, accumulatedRoughness);
             } else
                 ++totalBSDFs;
 
@@ -4815,6 +4845,9 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
             pstd::optional<BSDFSample> bs = Sw.Sample_f(pi.wo, u, sampler.Get2D());
             if (!bs)
                 break;
+
+            accumulatedRoughness = bs->sampledRoughness;
+
             beta *= bs->f * AbsDot(bs->wi, pi.shading.n) / bs->pdf;
             r_l = r_u / bs->pdf;
             // Don't increment depth this time...
@@ -5036,6 +5069,7 @@ std::unique_ptr<GuidedVolPathIntegrator> GuidedVolPathIntegrator::Create(
 
     std::string lightStrategy = parameters.GetOneString("lightsampler", "bvh");
     bool regularize = parameters.GetOneBool("regularize", false);
+    settings.regularizationGamma = parameters.GetOneFloat("regGamma", 0.1f);
     return std::make_unique<GuidedVolPathIntegrator>(maxDepth, minRRDepth, useNEE, settings, colorSpace, camera, sampler, aggregate,
                                                lights, lightStrategy, regularize);
 }

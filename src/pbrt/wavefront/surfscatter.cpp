@@ -66,6 +66,11 @@ void WavefrontPathIntegrator::EvaluateMaterialAndBSDF(MaterialEvalQueue *evalQue
 
     RayQueue *nextRayQueue = NextRayQueue(wavefrontDepth);
     auto queue = evalQueue->Get<MaterialEvalWorkItem<ConcreteMaterial>>();
+    
+    // TODO: make this work for wave front
+    Float regularizationGamma = 0.f; 
+    Float accumulatedRoughness = 0.f;
+    
     ForAllQueued(
         desc.c_str(), queue, maxQueueSize,
         PBRT_CPU_GPU_LAMBDA(const MaterialEvalWorkItem<ConcreteMaterial> w) {
@@ -142,7 +147,7 @@ void WavefrontPathIntegrator::EvaluateMaterialAndBSDF(MaterialEvalQueue *evalQue
 
             // Regularize BSDF, if appropriate
             if (regularize && w.anyNonSpecularBounces)
-                bsdf.Regularize();
+                bsdf.Regularize(regularizationGamma, accumulatedRoughness);
 
             // Initialize _VisibleSurface_ at first intersection if necessary
             if (w.depth == 0 && initializeVisibleSurface) {

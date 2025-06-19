@@ -200,7 +200,7 @@ class BxDF
     SampledSpectrum rho(pstd::span<const Point2f> u1, pstd::span<const Float> uc2,
                         pstd::span<const Point2f> u2) const;
 
-    PBRT_CPU_GPU inline void Regularize();
+    PBRT_CPU_GPU inline void Regularize(const Float regularizationGamma, const Float accumulatedRoughness);
 
     PBRT_CPU_GPU float GetEta() const;
 

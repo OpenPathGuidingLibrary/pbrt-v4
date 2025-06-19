@@ -71,7 +71,7 @@ class DiffuseBxDF {
     std::string ToString() const;
 
     PBRT_CPU_GPU
-    void Regularize() {}
+    void Regularize(const Float regularizationGamma, const Float accumulatedRoughness) {}
 
     PBRT_CPU_GPU
     float GetEta() const { return 1.f; }
@@ -157,7 +157,7 @@ class DiffuseTransmissionBxDF {
     std::string ToString() const;
 
     PBRT_CPU_GPU
-    void Regularize() {}
+    void Regularize(const Float regularizationGamma, const Float accumulatedRoughness) {}
 
     PBRT_CPU_GPU
     float GetEta() const { return 1.f;}
@@ -212,7 +212,7 @@ class CookTorranceBxDF {
     std::string ToString() const;
 
     PBRT_CPU_GPU
-    void Regularize() { mfDistrib.Regularize(); }
+    void Regularize(const Float regularizationGamma, const Float accumulatedRoughness) { mfDistrib.Regularize(regularizationGamma, accumulatedRoughness); }
 
     PBRT_CPU_GPU
     float GetEta() const { return eta; }
@@ -262,7 +262,7 @@ class DielectricBxDF {
     std::string ToString() const;
 
     PBRT_CPU_GPU
-    void Regularize() { mfDistrib.Regularize(); }
+    void Regularize(const Float regularizationGamma, const Float accumulatedRoughness) { mfDistrib.Regularize(regularizationGamma, accumulatedRoughness); }
 
     PBRT_CPU_GPU
     float GetEta() const { return eta; }
@@ -335,7 +335,7 @@ class ThinDielectricBxDF {
     std::string ToString() const;
 
     PBRT_CPU_GPU
-    void Regularize() { /* TODO */
+    void Regularize(const Float regularizationGamma, const Float accumulatedRoughness) { /* TODO */
     }
 
     PBRT_CPU_GPU
@@ -449,7 +449,7 @@ class ConductorBxDF {
     std::string ToString() const;
 
     PBRT_CPU_GPU
-    void Regularize() { mfDistrib.Regularize(); }
+    void Regularize(const Float regularizationGamma, const Float accumulatedRoughness) { mfDistrib.Regularize(regularizationGamma, accumulatedRoughness); }
 
     PBRT_CPU_GPU
     float GetEta() const { return 1.0f; }
@@ -530,9 +530,9 @@ class LayeredBxDF {
     std::string ToString() const;
 
     PBRT_CPU_GPU
-    void Regularize() {
-        top.Regularize();
-        bottom.Regularize();
+    void Regularize(const Float regularizationGamma, const Float accumulatedRoughness) {
+        top.Regularize(regularizationGamma, accumulatedRoughness);
+        bottom.Regularize(regularizationGamma, accumulatedRoughness);
     }
 
     PBRT_CPU_GPU
@@ -1027,7 +1027,7 @@ class HairBxDF {
               BxDFReflTransFlags sampleFlags) const;
 
     PBRT_CPU_GPU
-    void Regularize() {}
+    void Regularize(const Float regularizationGamma, const Float accumulatedRoughness) {}
 
     PBRT_CPU_GPU
     float GetEta() const { return 1.0f; }
@@ -1139,7 +1139,7 @@ class MeasuredBxDF {
               BxDFReflTransFlags sampleFlags) const;
 
     PBRT_CPU_GPU
-    void Regularize() {}
+    void Regularize(const Float regularizationGamma, const Float accumulatedRoughness) {}
 
     PBRT_CPU_GPU
     float GetEta() const { return 1.f; }
@@ -1203,7 +1203,7 @@ class NormalizedFresnelBxDF {
     }
 
     PBRT_CPU_GPU
-    void Regularize() {}
+    void Regularize(const Float regularizationGamma, const Float accumulatedRoughness) {}
 
     PBRT_CPU_GPU
     float GetEta() const { return eta; }
@@ -1265,8 +1265,8 @@ PBRT_CPU_GPU inline BxDFFlags BxDF::Flags() const {
     return Dispatch(flags);
 }
 
-PBRT_CPU_GPU inline void BxDF::Regularize() {
-    auto regularize = [&](auto ptr) { ptr->Regularize(); };
+PBRT_CPU_GPU inline void BxDF::Regularize(const Float regularizationGamma, const Float accumulatedRoughness) {
+    auto regularize = [&](auto ptr) { ptr->Regularize(regularizationGamma, accumulatedRoughness); };
     return Dispatch(regularize);
 }
 
