@@ -47,8 +47,6 @@
 
 //#define VOLUME_ABSORB
 
-#define GUIDED_RR
-
 namespace pbrt {
 
 STAT_COUNTER("Integrator/Camera rays traced", nCameraRays);
@@ -626,6 +624,7 @@ std::unique_ptr<LightPathIntegrator> LightPathIntegrator::Create(
 
 STAT_PERCENT("Integrator/Zero-radiance paths", zeroRadiancePaths, totalPaths);
 STAT_PERCENT("Integrator/Regularized BSDFs", regularizedBSDFs, totalBSDFs);
+STAT_PERCENT("Integrator/Regularized BSDFs", regularizedPhases, totalPhases);
 STAT_INT_DISTRIBUTION("Integrator/Path length", pathLength);
 
 // PathIntegrator Method Definitions
@@ -1051,6 +1050,13 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
                             // Sample direct lighting at volume-scattering event
                             MediumInteraction intr(p, -ray.d, ray.time, ray.medium,
                                                    mp.phase);
+                            if (regularize && anyNonSpecularBounces) {
+                                ++regularizedPhases;
+                                intr.phase.Regularize(regularizationGamma, accumulatedRoughness);
+                            }
+
+                            ++totalPhases;
+                            
                             L += SampleLd(intr, nullptr, lambda, sampler, beta, r_u);
 
                             // Sample new direction at real-scattering event
@@ -1060,6 +1066,7 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
                             if (!ps || ps->pdf == 0)
                                 terminated = true;
                             else {
+                                accumulatedRoughness = ps->meanCosine;
                                 // Update ray path state for indirect volume scattering
                                 beta *= ps->p / ps->pdf;
                                 r_l = r_u / ps->pdf;
@@ -3807,7 +3814,7 @@ GuidedPathIntegrator::GuidedPathIntegrator(const int maxDepth, const int minRRDe
 
         Vector2i resolution = camera.GetFilm().PixelBounds().Diagonal();
         sensor = camera.GetFilm().GetPixelSensor();
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
         if(guideSettings.loadContributionEstimate) {
             if(FileExists(guideSettings.contributionEstimateFileName)) {
                 imageSpaceGuidingBuffer = new openpgl::cpp::util::ImageSpaceGuidingBuffer(guideSettings.contributionEstimateFileName);
@@ -3836,7 +3843,7 @@ GuidedPathIntegrator::~GuidedPathIntegrator() {
         std::cout << "GuidedPathIntegrator storing guiding cache = " << guideSettings.guidingCacheFileName << std::endl;
         guiding_field->Store(guideSettings.guidingCacheFileName);
     }
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
     if(guideSettings.storeContributionEstimate){
         imageSpaceGuidingBuffer->Store(guideSettings.contributionEstimateFileName);
     }
@@ -3844,7 +3851,7 @@ GuidedPathIntegrator::~GuidedPathIntegrator() {
     delete guiding_device;
     delete guiding_sampleStorage;
     delete guiding_field;
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
     delete imageSpaceGuidingBuffer;
 #endif
 }
@@ -3867,7 +3874,7 @@ void GuidedPathIntegrator::PostProcessWave() {
         }
     }
     guiding_sampleStorage->Clear();
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
     if(calculateImageSpaceGuidingBuffer && waveCounter == std::pow(2.0f, imageSpaceGuidingBufferUpdateWave)) {
         Timer imageSpaceGuidingBufferTimer;
         imageSpaceGuidingBuffer->Update();
@@ -3886,13 +3893,13 @@ SampledSpectrum GuidedPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sa
     openpgl::cpp::SurfaceSamplingDistribution* surfaceSamplingDistribution = guiding_threadSurfaceSamplingDistribution->Get();
 
     openpgl::cpp::PathSegment* pathSegmentData = nullptr;
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
     openpgl::cpp::util::ImageSpaceGuidingBuffer::Sample cedSample;
 #endif
     SampledSpectrum pixelContributionEstimate(0.f);
     SampledSpectrum adjointEstimate(0.f);
     bool guideRR = false;
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
     if (guideSettings.guideRR && imageSpaceGuidingBufferReady) {
         openpgl::cpp::Vector3f pgPixelContributionEstimate = imageSpaceGuidingBuffer->GetPixelContributionEstimate(openpgl::cpp::Point2i(pPixel[0], pPixel[1]));
         pixelContributionEstimate[0] = pgPixelContributionEstimate.x;
@@ -3981,7 +3988,7 @@ SampledSpectrum GuidedPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sa
         add_direct_contribution = false;
 
         // Initialize _visibleSurf_ at first intersection
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
         if (depth == 0 && (visibleSurf || calculateImageSpaceGuidingBuffer)) {
 #else
         if (depth == 0 && (visibleSurf)) {
@@ -4006,7 +4013,7 @@ SampledSpectrum GuidedPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sa
             const SampledSpectrum albedo = bsdf.rho(isect.wo, ucRho, uRho);
             if(visibleSurf)
                 *visibleSurf = VisibleSurface(isect, albedo, lambda);
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
             const RGB albedoRGB = albedo.ToRGB(lambda, *colorSpace);
             cedSample.albedo = openpgl::cpp::Vector3f(albedoRGB[0], albedoRGB[1], albedoRGB[2]);
             cedSample.normal = openpgl::cpp::Vector3f(isect.n[0], isect.n[1], isect.n[2]);
@@ -4103,7 +4110,7 @@ SampledSpectrum GuidedPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sa
     }
     pathLength << depth;
 
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
     if(calculateImageSpaceGuidingBuffer)
     {
     #if defined(PBRT_RGB_RENDERING)
@@ -4278,7 +4285,7 @@ GuidedVolPathIntegrator::GuidedVolPathIntegrator(int maxDepth, int minRRDepth, b
 
         Vector2i resolution = camera.GetFilm().PixelBounds().Diagonal();
         sensor = camera.GetFilm().GetPixelSensor();
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
         if(guideSettings.loadContributionEstimate) {
             if(FileExists(guideSettings.contributionEstimateFileName)) {
                 imageSpaceGuidingBuffer = new openpgl::cpp::util::ImageSpaceGuidingBuffer(guideSettings.contributionEstimateFileName);
@@ -4308,7 +4315,7 @@ GuidedVolPathIntegrator::~GuidedVolPathIntegrator() {
         std::cout << "GuidedVolPathIntegrator storing guiding cache = " << guideSettings.guidingCacheFileName << std::endl;
         guiding_field->Store(guideSettings.guidingCacheFileName);
     }
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
     if(guideSettings.storeContributionEstimate){
         imageSpaceGuidingBuffer->Store(guideSettings.contributionEstimateFileName);
     }
@@ -4316,7 +4323,7 @@ GuidedVolPathIntegrator::~GuidedVolPathIntegrator() {
     delete guiding_device;
     delete guiding_sampleStorage;
     delete guiding_field;
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
     delete imageSpaceGuidingBuffer;
 #endif
 }
@@ -4340,7 +4347,7 @@ void GuidedVolPathIntegrator::PostProcessWave() {
     }
 
     guiding_sampleStorage->Clear();
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
     if(calculateImageSpaceGuidingBuffer && waveCounter == std::pow(2.0f, imageSpaceGuidingBufferUpdateWave)) {
         Timer imageSpaceGuidingBufferTimer;
         imageSpaceGuidingBuffer->Update();
@@ -4361,7 +4368,7 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
     openpgl::cpp::VolumeSamplingDistribution* volumeSamplingDistribution = guiding_threadVolumeSamplingDistribution->Get();
 
     openpgl::cpp::PathSegment* pathSegmentData = nullptr;
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
     openpgl::cpp::util::ImageSpaceGuidingBuffer::Sample cedSample;
 #endif
     SampledSpectrum pixelContributionEstimate(1.f);
@@ -4369,7 +4376,7 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
     bool guideRR = false;
     const bool guideSurfaceRR = guideSettings.guideSurfaceRR;
     const bool guideVolumeRR = guideSettings.guideVolumeRR;
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
     if (guideSettings.guideRR && imageSpaceGuidingBufferReady) {
         openpgl::cpp::Vector3f pgPixelContributionEstimate = imageSpaceGuidingBuffer->GetPixelContributionEstimate(openpgl::cpp::Point2i(pPixel[0], pPixel[1]));
         pixelContributionEstimate[0] = pgPixelContributionEstimate.x;
@@ -4472,7 +4479,7 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
                         if(depth==0) {
                             SampledSpectrum albedo = mp.sigma_s / (mp.sigma_s + mp.sigma_a);
                             RGB albedoRGB = albedo.ToRGB(lambda, *colorSpace);
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
                             cedSample.albedo = openpgl::cpp::Vector3f(albedoRGB[0], albedoRGB[1], albedoRGB[2]);
                             cedSample.normal = openpgl::cpp::Vector3f(-ray.d[0], -ray.d[1], -ray.d[2]);
                             cedSample.SetSurfaceEvent(false);
@@ -4669,7 +4676,7 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
         add_direct_contribution = false;
 
         // Initialize _visibleSurf_ at first intersection
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
         if (depth == 0 && (visibleSurf || calculateImageSpaceGuidingBuffer)) {
 #else
         if (depth == 0 && (visibleSurf)) {
@@ -4696,7 +4703,7 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
 
             if(visibleSurf)
                 *visibleSurf = VisibleSurface(isect, albedo, lambda);
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
             cedSample.albedo = openpgl::cpp::Vector3f(albedoRGB[0], albedoRGB[1], albedoRGB[2]);
             cedSample.normal = openpgl::cpp::Vector3f(isect.n[0], isect.n[1], isect.n[2]);
             cedSample.SetSurfaceEvent(true);
@@ -4875,7 +4882,7 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
     }
 
     pathLength << depth;
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
     if(calculateImageSpaceGuidingBuffer)
     {
 #if defined(PBRT_RGB_RENDERING)

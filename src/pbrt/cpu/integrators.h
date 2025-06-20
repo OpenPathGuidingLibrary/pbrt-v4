@@ -33,6 +33,9 @@
 #include <string>
 #include <vector>
 
+#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER) && defined(OPENPGL_RADIANCE_CACHES)
+#define GUIDED_RR
+#endif
 namespace pbrt {
 
 // Integrator Definition
@@ -323,7 +326,7 @@ class GuidedPathIntegrator : public RayIntegrator {
     openpgl::cpp::Field* guiding_field {nullptr};
     openpgl::cpp::Device* guiding_device {nullptr};
     //ThreadLocal<Allocator> threadPathSegmentStorage;
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
     openpgl::cpp::util::ImageSpaceGuidingBuffer* imageSpaceGuidingBuffer;
 
     bool imageSpaceGuidingBufferReady {false};
@@ -474,7 +477,7 @@ class GuidedVolPathIntegrator : public RayIntegrator {
     openpgl::cpp::Field* guiding_field {nullptr};
     openpgl::cpp::Device* guiding_device {nullptr};
 
-#if defined(OPENPGL_IMAGE_SPACE_GUIDING_BUFFER)
+#if defined(GUIDED_RR)
     openpgl::cpp::util::ImageSpaceGuidingBuffer* imageSpaceGuidingBuffer;
 
     bool imageSpaceGuidingBufferReady {false};
