@@ -255,6 +255,7 @@ class GuidedPathIntegrator : public RayIntegrator {
         bool guideSurface {true};
 
         bool guideRR {false};
+        bool rrCorrection {true};
 
         GuidingDistributionType distributionType {EGuideDistributionPAVMM};
 
@@ -406,7 +407,7 @@ class GuidedVolPathIntegrator : public RayIntegrator {
         bool guideRR {false};
         bool guideSurfaceRR {true};
         bool guideVolumeRR {true};
-
+        bool rrCorrection {true};
         GuidingDistributionType distributionType {EGuideDistributionPAVMM};
 
         GuidingType surfaceGuidingType {EGuideRIS};

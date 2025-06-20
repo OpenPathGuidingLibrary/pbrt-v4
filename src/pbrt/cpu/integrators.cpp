@@ -4069,7 +4069,9 @@ SampledSpectrum GuidedPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sa
 
         accumulatedRoughness = bs->sampledRoughness;
 
-        rr_correction *= bs->pdf / bs->bsdfPdf;
+        if(guideSettings.rrCorrection) {
+            rr_correction *= bs->pdf / bs->bsdfPdf;
+        }
         misPDF = survivalProb * bs->misPdf;
         // Update path state variables after surface scattering
         bsdfWeight = bs->f * AbsDot(bs->wi, isect.shading.n) / bs->pdf;
@@ -4196,6 +4198,8 @@ std::unique_ptr<GuidedPathIntegrator> GuidedPathIntegrator::Create(
 
     settings.guideSurface = parameters.GetOneBool("surfaceguiding", true);
     settings.guideRR = parameters.GetOneBool("rrguiding", false);
+
+    settings.rrCorrection = parameters.GetOneBool("rrcorrection", true);
 
     settings.guideNumTrainingWaves = parameters.GetOneInt("trainingSamples", 128);
 
@@ -4768,7 +4772,9 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
 
         accumulatedRoughness = bs->sampledRoughness;
 
-        rr_correction *= bs->pdf / bs->bsdfPdf;
+        if(guideSettings.rrCorrection) {
+            rr_correction *= bs->pdf / bs->bsdfPdf;
+        }
         misPDF = bs->misPdf;
         // Update _beta_ and rescaled path probabilities for BSDF scattering
         bsdfWeight = bs->f * AbsDot(bs->wi, isect.shading.n) / bs->pdf;
@@ -5048,6 +5054,8 @@ std::unique_ptr<GuidedVolPathIntegrator> GuidedVolPathIntegrator::Create(
     settings.guideRR = parameters.GetOneBool("rrguiding", false);
     settings.guideSurfaceRR = parameters.GetOneBool("surfacerrguiding", true);
     settings.guideVolumeRR = parameters.GetOneBool("volumerrguiding", true);
+
+    settings.rrCorrection = parameters.GetOneBool("rrcorrection", true);
 
     settings.guideNumTrainingWaves = parameters.GetOneInt("trainingSamples", 128);
 
