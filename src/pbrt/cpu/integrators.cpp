@@ -3848,6 +3848,7 @@ GuidedPathIntegrator::~GuidedPathIntegrator() {
 #if defined(GUIDED_RR)
     if(guideSettings.storeContributionEstimate){
         imageSpaceGuidingBuffer->Store(guideSettings.contributionEstimateFileName);
+        imageSpaceGuidingBuffer->Reset();
     }
 #endif
     delete guiding_device;
@@ -4328,6 +4329,7 @@ GuidedVolPathIntegrator::~GuidedVolPathIntegrator() {
 #if defined(GUIDED_RR)
     if(guideSettings.storeContributionEstimate){
         imageSpaceGuidingBuffer->Store(guideSettings.contributionEstimateFileName);
+        imageSpaceGuidingBuffer->Reset();
     }
 #endif
     delete guiding_device;
