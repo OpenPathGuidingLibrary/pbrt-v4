@@ -1052,7 +1052,7 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
                                                    mp.phase);
                             if (regularize && anyNonSpecularBounces) {
                                 ++regularizedPhases;
-                                intr.phase.Regularize(regularizationGamma, accumulatedRoughness);
+                                //intr.phase.Regularize(regularizationGamma, accumulatedRoughness);
                             }
 
                             ++totalPhases;
