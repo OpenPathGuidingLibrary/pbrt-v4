@@ -169,12 +169,13 @@ class NormalizedFresnelBxDF;
 class CookTorranceBxDF;
 class CoatedDiffuseBxDF;
 class CoatedConductorBxDF;
+class OpenPBRBxDF;
 
 // BxDF Definition
 class BxDF
     : public TaggedPointer<DiffuseTransmissionBxDF, DiffuseBxDF, CoatedDiffuseBxDF,
                            CoatedConductorBxDF, DielectricBxDF, ThinDielectricBxDF,
-                           HairBxDF, MeasuredBxDF, ConductorBxDF, NormalizedFresnelBxDF, CookTorranceBxDF> {
+                           HairBxDF, MeasuredBxDF, ConductorBxDF, NormalizedFresnelBxDF, CookTorranceBxDF, OpenPBRBxDF> {
   public:
     // BxDF Interface
     PBRT_CPU_GPU inline BxDFFlags Flags() const;

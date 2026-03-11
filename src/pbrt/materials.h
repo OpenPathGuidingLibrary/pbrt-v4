@@ -551,6 +551,65 @@ class ConductorMaterial {
     bool remapRoughness;
 };
 
+// OpenPBRMaterial Definition
+class OpenPBRMaterial {
+  public:
+    using BxDF = OpenPBRBxDF;
+    using BSSRDF = void;
+    // OpenPBRMaterial Public Methods
+    OpenPBRMaterial(SpectrumTexture reflectance, FloatTexture uRoughness,
+                          FloatTexture vRoughness, SpectrumTexture albedo, 
+                          Spectrum eta, FloatTexture displacement, Image *normalMap,
+                          bool remapRoughness)
+        : displacement(displacement),
+          normalMap(normalMap),
+          reflectance(reflectance),
+          uRoughness(uRoughness),
+          vRoughness(vRoughness),
+          albedo(albedo),
+          eta(eta),
+          remapRoughness(remapRoughness) {}
+
+    static const char *Name() { return "OpenPBRMaterial"; }
+
+    template <typename TextureEvaluator>
+    PBRT_CPU_GPU bool CanEvaluateTextures(TextureEvaluator texEval) const {
+        return texEval.CanEvaluate({uRoughness, vRoughness},
+                                   {reflectance, albedo});
+    }
+
+    template <typename TextureEvaluator>
+    PBRT_CPU_GPU OpenPBRBxDF GetBxDF(TextureEvaluator texEval,
+                                           const MaterialEvalContext &ctx,
+                                           SampledWavelengths &lambda) const;
+
+    PBRT_CPU_GPU
+    FloatTexture GetDisplacement() const { return displacement; }
+    PBRT_CPU_GPU
+    const Image *GetNormalMap() const { return normalMap; }
+
+    static OpenPBRMaterial *Create(const TextureParameterDictionary &parameters,
+                                         Image *normalMap, const FileLoc *loc,
+                                         Allocator alloc);
+
+    template <typename TextureEvaluator>
+    PBRT_CPU_GPU void GetBSSRDF(TextureEvaluator texEval, const MaterialEvalContext &ctx,
+                                SampledWavelengths &lambda) const {}
+
+    PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
+
+    std::string ToString() const;
+
+  private:
+    // OpenPBRMaterial Private Members
+    FloatTexture displacement;
+    Image *normalMap;
+    SpectrumTexture reflectance, albedo;
+    FloatTexture uRoughness, vRoughness;
+    Spectrum eta;
+    bool remapRoughness;
+};
+
 // CookTorranceMaterial Definition
 class CookTorranceMaterial {
   public:

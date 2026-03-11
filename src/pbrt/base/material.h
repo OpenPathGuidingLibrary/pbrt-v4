@@ -29,6 +29,7 @@ class DiffuseMaterial;
 class DiffuseTransmissionMaterial;
 class HairMaterial;
 class MeasuredMaterial;
+class OpenPBRMaterial;
 class SubsurfaceMaterial;
 class ThinDielectricMaterial;
 class MixMaterial;
@@ -36,7 +37,7 @@ class MixMaterial;
 // Material Definition
 class Material
     : public TaggedPointer<  // Material Types
-          CoatedDiffuseMaterial, CoatedConductorMaterial, ConductorMaterial, CookTorranceMaterial,
+          CoatedDiffuseMaterial, CoatedConductorMaterial, ConductorMaterial, CookTorranceMaterial, OpenPBRMaterial,
           DielectricMaterial, DiffuseMaterial, DiffuseTransmissionMaterial, HairMaterial,
           MeasuredMaterial, SubsurfaceMaterial, ThinDielectricMaterial, MixMaterial
 

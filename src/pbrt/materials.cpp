@@ -251,6 +251,99 @@ ConductorMaterial *ConductorMaterial::Create(const TextureParameterDictionary &p
                                                remapRoughness);
 }
 
+// OpenPBRMaterial Method Definitions
+template <typename TextureEvaluator>
+OpenPBRBxDF OpenPBRMaterial::GetBxDF(TextureEvaluator texEval,
+                                                 const MaterialEvalContext &ctx,
+                                                 SampledWavelengths &lambda) const {
+    // Initialize diffuse component of plastic material
+    SampledSpectrum r = Clamp(texEval(reflectance, ctx, lambda), 0, 1);
+
+    // Create microfacet distribution _distrib_ for coated diffuse material
+    Float urough = texEval(uRoughness, ctx);
+    Float vrough = texEval(vRoughness, ctx);
+    if (remapRoughness) {
+        urough = TrowbridgeReitzDistribution::RoughnessToAlpha(urough);
+        vrough = TrowbridgeReitzDistribution::RoughnessToAlpha(vrough);
+    }
+    urough = std::max(0.001f, urough);
+    vrough = std::max(0.001f, vrough);
+    TrowbridgeReitzDistribution distrib(urough, vrough);
+
+    //Float thick = texEval(thickness, ctx);
+
+    Float sampledEta = eta(lambda[0]);
+    if (!eta.template Is<ConstantSpectrum>())
+        lambda.TerminateSecondary();
+    if (sampledEta == 0)
+        sampledEta = 1;
+
+    //SampledSpectrum a = Clamp(texEval(albedo, ctx, lambda), 0, 1);
+    //Float gg = Clamp(texEval(g, ctx), -1, 1);
+
+    return OpenPBRBxDF(r, sampledEta, distrib);
+}
+
+// Explicit template instantiation
+template OpenPBRBxDF OpenPBRMaterial::GetBxDF(
+    BasicTextureEvaluator, const MaterialEvalContext &ctx,
+    SampledWavelengths &lambda) const;
+template OpenPBRBxDF OpenPBRMaterial::GetBxDF(
+    UniversalTextureEvaluator, const MaterialEvalContext &ctx,
+    SampledWavelengths &lambda) const;
+
+std::string OpenPBRMaterial::ToString() const {
+    return StringPrintf(
+        "[ OpenPBRMaterial displacement: %s normalMap: %s reflectance: %s "
+        "uRoughness: %s vRoughness: %s eta: %s remapRoughness: %s ]",
+        displacement, normalMap ? normalMap->ToString() : std::string("(nullptr)"),
+        reflectance, uRoughness, vRoughness, eta, remapRoughness);
+}
+
+OpenPBRMaterial *OpenPBRMaterial::Create(
+    const TextureParameterDictionary &parameters, Image *normalMap, const FileLoc *loc,
+    Allocator alloc) {
+    SpectrumTexture reflectance = parameters.GetSpectrumTexture(
+        "reflectance", nullptr, SpectrumType::Albedo, alloc);
+    if (!reflectance)
+        reflectance = alloc.new_object<SpectrumConstantTexture>(
+            alloc.new_object<ConstantSpectrum>(0.5f));
+
+    FloatTexture uRoughness = parameters.GetFloatTextureOrNull("uroughness", alloc);
+    FloatTexture vRoughness = parameters.GetFloatTextureOrNull("vroughness", alloc);
+    if (!uRoughness)
+        uRoughness = parameters.GetFloatTexture("roughness", 0.f, alloc);
+    if (!vRoughness)
+        vRoughness = parameters.GetFloatTexture("roughness", 0.f, alloc);
+
+    //FloatTexture thickness = parameters.GetFloatTexture("thickness", .01, alloc);
+
+    Spectrum eta;
+    if (!parameters.GetFloatArray("eta").empty())
+        eta = alloc.new_object<ConstantSpectrum>(parameters.GetFloatArray("eta")[0]);
+    else
+        eta = parameters.GetOneSpectrum("eta", nullptr, SpectrumType::Unbounded, alloc);
+    if (!eta)
+        eta = alloc.new_object<ConstantSpectrum>(1.5f);
+
+    //int maxDepth = parameters.GetOneInt("maxdepth", 10);
+    //int nSamples = parameters.GetOneInt("nsamples", 1);
+
+    //FloatTexture g = parameters.GetFloatTexture("g", 0.f, alloc);
+    SpectrumTexture albedo =
+        parameters.GetSpectrumTexture("albedo", nullptr, SpectrumType::Albedo, alloc);
+    if (!albedo)
+        albedo = alloc.new_object<SpectrumConstantTexture>(
+            alloc.new_object<ConstantSpectrum>(0.f));
+
+    FloatTexture displacement = parameters.GetFloatTextureOrNull("displacement", alloc);
+    bool remapRoughness = parameters.GetOneBool("remaproughness", true);
+
+    return alloc.new_object<OpenPBRMaterial>(
+        reflectance, uRoughness, vRoughness, albedo, eta, displacement,
+        normalMap, remapRoughness);
+}
+
 // CookTorranceMaterial Method Definitions
 template <typename TextureEvaluator>
 CookTorranceBxDF CookTorranceMaterial::GetBxDF(TextureEvaluator texEval,
@@ -740,6 +833,8 @@ Material Material::Create(const std::string &name,
     else if (name == "coateddiffuse")
         //material = CoatedDiffuseMaterial::Create(parameters, normalMap, loc, alloc);
         material = CookTorranceMaterial::Create(parameters, normalMap, loc, alloc);
+    else if (name == "openpbr")
+        material = OpenPBRMaterial::Create(parameters, normalMap, loc, alloc);
     else if (name == "coatedconductor")
         material = CoatedConductorMaterial::Create(parameters, normalMap, loc, alloc);
     else if (name == "diffusetransmission")
