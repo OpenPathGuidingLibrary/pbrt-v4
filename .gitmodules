@@ -50,3 +50,6 @@
 [submodule "src/ext/openpbr-bsdf"]
 	path = src/ext/openpbr-bsdf
 	url = https://github.com/adobe/openpbr-bsdf.git
+[submodule "src/ext/glm"]
+	path = src/ext/glm
+	url = https://github.com/g-truc/glm.git
