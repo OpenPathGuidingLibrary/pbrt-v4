@@ -47,3 +47,6 @@
 	path = src/ext/tbb
 	url = https://github.com/oneapi-src/oneTBB.git
 	tag = v2021.12.0
+[submodule "src/ext/openpbr-bsdf"]
+	path = src/ext/openpbr-bsdf
+	url = https://github.com/adobe/openpbr-bsdf.git
