@@ -25,6 +25,9 @@
 
 #include <unordered_map>
 
+#include <glm/glm.hpp>
+#include <openpbr.h>
+
 namespace pbrt {
 
 std::string ToString(BxDFReflTransFlags flags) {
@@ -191,113 +194,102 @@ std::string CookTorranceBxDF::ToString() const {
 pstd::optional<BSDFSample> OpenPBRBxDF::Sample_f(
     Vector3f wo, Float uc, Point2f u, TransportMode mode,
     BxDFReflTransFlags sampleFlags) const {
-    // Compute probabilities _pr_ and _pt_ for sampling glossy and diffuse
-    //Float pr = 0.5;//FrDielectric(Dot(wo, Vector3f(0,0,1)), eta);
-    Vector3f sn = wo.z > 0? Vector3f(0,0,1) : Vector3f(0,0,-1);
-    Float pr = FrDielectric(Dot(wo, sn), eta);
-    Float pt = 1.f - pr;
 
-    Float pdf;
-    if (uc < pr / (pr + pt)) {
-
-        Vector3f wm = mfDistrib.Sample_wm(wo, u);
-        Float R = FrDielectric(AbsDot(wo, wm), eta);
-        Float T = 1 - R;
-
-        // Sample reflection at rough dielectric interface
-        Vector3f wi = Reflect(wo, wm);
-        if (!SameHemisphere(wo, wi))
-            return {};
-        // Compute PDF of rough dielectric reflection
-        pdf = mfDistrib.PDF(wo, wm) / (4 * AbsDot(wo, wm)) * pr / (pr + pt);
-        pdf += CosineHemispherePDF(AbsCosTheta(wi)) * (pt / (pr + pt));
-        DCHECK(!IsNaN(pdf));
-        SampledSpectrum f(mfDistrib.D(wm) * mfDistrib.G(wo, wi) * R /
-                            (4 * CosTheta(wi) * CosTheta(wo)));
-        f += (this->R * InvPi) * T;
-        return BSDFSample(f, wi, pdf, BxDFFlags::GlossyReflection | BxDFFlags::DiffuseReflection, mfDistrib.MinAlpha());
-
-    } else {
-
-        Vector3f wi = SampleCosineHemisphere(u);
-        if (wo.z < 0)
-            wi.z *= -1;
-        Vector3f wm = wi + wo;
-        CHECK_RARE(1e-5f, LengthSquared(wm) == 0);
-        wm = Normalize(wm);
-        Float R = FrDielectric(Dot(wo, wm), eta);
-        Float T = 1 - R;
-        Float pdf = CosineHemispherePDF(AbsCosTheta(wi)) * (pt / (pr + pt));
-        pdf += mfDistrib.PDF(wo, wm) / (4 * AbsDot(wo, wm)) * pr / (pr + pt);
-
-        SampledSpectrum f(mfDistrib.D(wm) * mfDistrib.G(wo, wi) * R /
-                            (4 * CosTheta(wi) * CosTheta(wo)));
-        f += (this->R * InvPi) * T;
-        return BSDFSample(f, wi, pdf, BxDFFlags::GlossyReflection | BxDFFlags::DiffuseReflection, mfDistrib.MinAlpha());
+    OpenPBR_ResolvedInputs inputs = openpbr_make_default_resolved_inputs();
+    inputs.base_weight = base_weight;
+    inputs.base_color = vec3(base_color[0], base_color[1], base_color[2]);  // terracotta
+    inputs.base_metalness = base_metalness;
+    inputs.base_diffuse_roughness = base_diffuse_roughness;
+    
+    inputs.specular_weight = specular_weight;
+    inputs.specular_roughness = specular_roughness;
+    inputs.specular_roughness_anisotropy = specular_roughness_anisotropy;
+    inputs.specular_ior = specular_ior;
+    
+    const vec3 view_direction = vec3(wo[0], wo[1], wo[2]);
+    const OpenPBR_PreparedBsdf prepared = openpbr_prepare_bsdf_and_volume(inputs,
+                                                                      vec3(1.0f),                     // path throughput (for importance sampling)
+                                                                      OpenPBR_BaseRgbWavelengths_nm,  // RGB wavelengths in nanometers
+                                                                      OpenPBR_VacuumIor,              // exterior IOR
+                                                                      view_direction);                // incident direction (pointing away from surface)
+    vec3 sample(uc, u[0],u[1]);
+    vec3 light_direction;
+    OpenPBR_DiffuseSpecular weight;
+    float pdf;
+    OpenPBR_BsdfLobeType lobe_type;
+    openpbr_sample(prepared, sample, light_direction, weight, pdf, lobe_type);
+    Vector3f wi = Vector3f(light_direction.x,light_direction.y,light_direction.z);
+    if (pdf > 0.0f) {
+        const vec3 weight_sum = openpbr_get_sum_of_diffuse_specular(weight);
+        SampledSpectrum f;
+        f[0] = weight_sum.x;
+        f[1] = weight_sum.y;
+        f[2] = weight_sum.z;
+        return BSDFSample(f*pdf, wi, pdf, BxDFFlags::GlossyReflection | BxDFFlags::DiffuseReflection, 0.5f);
     }
+    return {};
 }
 
 SampledSpectrum OpenPBRBxDF::f(Vector3f wo, Vector3f wi, TransportMode mode) const {
-    if (!SameHemisphere(wo, wi))
-        return {};
+    OpenPBR_ResolvedInputs inputs = openpbr_make_default_resolved_inputs();
+    inputs.base_weight = base_weight;
+    inputs.base_color = vec3(base_color[0], base_color[1], base_color[2]);  // terracotta
+    inputs.base_metalness = base_metalness;
+    inputs.base_diffuse_roughness = base_diffuse_roughness;
     
-    //if (eta == 1 || mfDistrib.EffectivelySmooth())
-    //    return SampledSpectrum(0.f);
-    // Evaluate rough dielectric BSDF
-    // Compute generalized half vector _wm_
-    Float cosTheta_o = CosTheta(wo), cosTheta_i = CosTheta(wi);
-
-    Vector3f wm = wi + wo;
-    CHECK_RARE(1e-5f, LengthSquared(wm) == 0);
-    if (cosTheta_i == 0 || cosTheta_o == 0 || LengthSquared(wm) == 0)
-        return {};
-    wm = Normalize(wm);
-
-    Float F = FrDielectric(Dot(wo, wm), eta);
-    // Compute reflection at rough dielectric interface
-    SampledSpectrum f = SampledSpectrum(mfDistrib.D(wm) * mfDistrib.G(wo, wi) * F /
-                            std::abs(4 * cosTheta_i * cosTheta_o));
-    f += (this->R * InvPi) * (1.0f - F);
+    inputs.specular_weight = specular_weight;
+    inputs.specular_roughness = specular_roughness;
+    inputs.specular_roughness_anisotropy = specular_roughness_anisotropy;
+    inputs.specular_ior = specular_ior;
+    
+    const vec3 view_direction = vec3(wo[0], wo[1], wo[2]);
+    const vec3 light_direction = vec3(wi[0], wi[1], wi[2]);
+    const OpenPBR_PreparedBsdf prepared = openpbr_prepare_bsdf_and_volume(inputs,
+                                                                      vec3(1.0f),                     // path throughput (for importance sampling)
+                                                                      OpenPBR_BaseRgbWavelengths_nm,  // RGB wavelengths in nanometers
+                                                                      OpenPBR_VacuumIor,              // exterior IOR
+                                                                      view_direction);    
+    OpenPBR_DiffuseSpecular eval = openpbr_eval(prepared, light_direction);
+    const vec3 eval_sum = openpbr_get_sum_of_diffuse_specular(eval);
+    SampledSpectrum f;
+    f[0] = eval_sum.x;
+    f[1] = eval_sum.y;
+    f[2] = eval_sum.z;
     return f;
 }
 
 Float OpenPBRBxDF::PDF(Vector3f wo, Vector3f wi, TransportMode mode,
                           BxDFReflTransFlags sampleFlags) const {
+    
     if (!(sampleFlags & BxDFReflTransFlags::Reflection) || !SameHemisphere(wo, wi))
         return 0.f;
+
+    OpenPBR_ResolvedInputs inputs = openpbr_make_default_resolved_inputs();
+    inputs.base_weight = base_weight;
+    inputs.base_color = vec3(base_color[0], base_color[1], base_color[2]);  // terracotta
+    inputs.base_metalness = base_metalness;
+    inputs.base_diffuse_roughness = base_diffuse_roughness;
     
-    //if (eta == 1 || mfDistrib.EffectivelySmooth())
-    //    return 0.f;
+    inputs.specular_weight = specular_weight;
+    inputs.specular_roughness = specular_roughness;
+    inputs.specular_roughness_anisotropy = specular_roughness_anisotropy;
+    inputs.specular_ior = specular_ior;
     
-    // Evaluate sampling PDF of rough dielectric BSDF
-    // Compute generalized half vector _wm_
-    Float cosTheta_o = CosTheta(wo), cosTheta_i = CosTheta(wi);
-    Vector3f wm = wi + wo;
-    CHECK_RARE(1e-5f, LengthSquared(wm) == 0);
-    if (cosTheta_i == 0 || cosTheta_o == 0 || LengthSquared(wm) == 0)
-        return 0.f;
-    wm = Normalize(wm);
+    
+    const vec3 view_direction = vec3(wo[0], wo[1], wo[2]);
+    const vec3 light_direction = vec3(wi[0], wi[1], wi[2]);
+    const OpenPBR_PreparedBsdf prepared = openpbr_prepare_bsdf_and_volume(inputs,
+                                                                      vec3(1.0f),                     // path throughput (for importance sampling)
+                                                                      OpenPBR_BaseRgbWavelengths_nm,  // RGB wavelengths in nanometers
+                                                                      OpenPBR_VacuumIor,              // exterior IOR
+                                                                      view_direction);  
 
-    // Determine Fresnel reflectance of rough dielectric boundary
-    Float R = FrDielectric(Dot(wo, wm), eta);
-    Float T = 1 - R;
-
-    // Compute probabilities _pr_ and _pt_ for sampling reflection and transmission
-    //Float pr = 0.5;//FrDielectric(Dot(wo, Vector3f(0,0,1)), eta);
-    Vector3f sn = wo.z > 0? Vector3f(0,0,1) : Vector3f(0,0,-1);
-    Float pr = FrDielectric(AbsDot(wo, sn), eta);
-    Float pt = 1 -pr;
-
-    // Return PDF for rough dielectric
-    Float pdf =  mfDistrib.PDF(wo, wm) / (4 * AbsDot(wo, wm)) * pr / (pr + pt);
-    pdf += CosineHemispherePDF(AbsCosTheta(wi)) * pt / (pr + pt);
-
-    return pdf;
+    return openpbr_pdf(prepared, light_direction);
+    
 }
 
 std::string OpenPBRBxDF::ToString() const {
-    return StringPrintf("[ CookTorranceBxDF eta: %f mfDistrib: %s ]", eta,
-                        mfDistrib.ToString());
+    return StringPrintf("[ OpenPBRBxDF ior: %f ]", specular_ior);
 }
 
 // DielectricBxDF Method Definitions

@@ -233,12 +233,29 @@ class OpenPBRBxDF {
     // CookTorranceBxDF Public Methods
     OpenPBRBxDF() = default;
     PBRT_CPU_GPU
-    OpenPBRBxDF(SampledSpectrum R, Float eta, TrowbridgeReitzDistribution mfDistrib)
-        : R(R), eta(eta), mfDistrib(mfDistrib) {}
+    OpenPBRBxDF(Float base_weight,
+    SampledSpectrum base_color,
+    Float base_metalness,
+    Float base_diffuse_roughness,
+    Float specular_weight,
+    SampledSpectrum specular_color,
+    Float specular_roughness,
+    Float specular_roughness_anisotropy,
+    Float specular_ior)
+        : base_weight(base_weight),
+        base_color(base_color),
+        base_metalness(base_metalness),
+        base_diffuse_roughness(base_diffuse_roughness),
+        specular_weight(specular_weight),
+        specular_color(specular_color),
+        specular_roughness(specular_roughness),
+        specular_roughness_anisotropy(specular_roughness_anisotropy),
+        specular_ior(specular_ior)
+         {}
 
     PBRT_CPU_GPU
     BxDFFlags Flags() const {
-        BxDFFlags flags = (eta == 1) ? BxDFFlags::DiffuseReflection
+        BxDFFlags flags = (specular_ior == 1) ? BxDFFlags::DiffuseReflection
                                      : (BxDFFlags::Reflection | BxDFFlags::DiffuseReflection);
         return flags;
         //return flags |
@@ -262,19 +279,25 @@ class OpenPBRBxDF {
     std::string ToString() const;
 
     PBRT_CPU_GPU
-    void Regularize(const Float regularizationGamma, const Float accumulatedRoughness) { mfDistrib.Regularize(regularizationGamma, accumulatedRoughness); }
+    void Regularize(const Float regularizationGamma, const Float accumulatedRoughness) { }//TODO: regularize the roughness values }
 
     PBRT_CPU_GPU
-    float GetEta() const { return eta; }
+    float GetEta() const { return specular_ior; }
 
     PBRT_CPU_GPU 
-    float GetRoughness() const {return mfDistrib.MinAlpha(); }
+    float GetRoughness() const {return specular_roughness; }
 
   private:
-    // CookTorranceBxDF Private Members
-    SampledSpectrum R;
-    Float eta;
-    TrowbridgeReitzDistribution mfDistrib;
+    Float base_weight;
+    SampledSpectrum base_color;
+    Float base_metalness;
+    Float base_diffuse_roughness;
+
+    Float specular_weight;
+    SampledSpectrum specular_color;
+    Float specular_roughness;
+    Float specular_roughness_anisotropy;
+    Float specular_ior;
 };
 
 // DielectricBxDF Definition

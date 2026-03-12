@@ -557,25 +557,31 @@ class OpenPBRMaterial {
     using BxDF = OpenPBRBxDF;
     using BSSRDF = void;
     // OpenPBRMaterial Public Methods
-    OpenPBRMaterial(SpectrumTexture reflectance, FloatTexture uRoughness,
-                          FloatTexture vRoughness, SpectrumTexture albedo, 
-                          Spectrum eta, FloatTexture displacement, Image *normalMap,
+    OpenPBRMaterial(FloatTexture base_weight, SpectrumTexture base_color,
+                          FloatTexture base_metalness, FloatTexture base_diffuse_roughness, 
+                          FloatTexture specular_weight, SpectrumTexture specular_color,
+                          FloatTexture specular_roughness, FloatTexture specular_roughness_anisotropy,
+                          Spectrum specular_ior, FloatTexture displacement, Image *normalMap,
                           bool remapRoughness)
         : displacement(displacement),
           normalMap(normalMap),
-          reflectance(reflectance),
-          uRoughness(uRoughness),
-          vRoughness(vRoughness),
-          albedo(albedo),
-          eta(eta),
+          base_weight(base_weight),
+          base_color(base_color),
+          base_metalness(base_metalness),
+          base_diffuse_roughness(base_diffuse_roughness),
+          specular_weight(specular_weight),
+          specular_color(specular_color),
+          specular_roughness(specular_roughness),
+          specular_roughness_anisotropy(specular_roughness_anisotropy),
+          specular_ior(specular_ior),
           remapRoughness(remapRoughness) {}
 
     static const char *Name() { return "OpenPBRMaterial"; }
 
     template <typename TextureEvaluator>
     PBRT_CPU_GPU bool CanEvaluateTextures(TextureEvaluator texEval) const {
-        return texEval.CanEvaluate({uRoughness, vRoughness},
-                                   {reflectance, albedo});
+        return texEval.CanEvaluate({base_weight, base_metalness, base_diffuse_roughness, specular_weight, specular_roughness, specular_roughness_anisotropy},
+                                   {base_color, specular_color});
     }
 
     template <typename TextureEvaluator>
@@ -604,10 +610,18 @@ class OpenPBRMaterial {
     // OpenPBRMaterial Private Members
     FloatTexture displacement;
     Image *normalMap;
-    SpectrumTexture reflectance, albedo;
-    FloatTexture uRoughness, vRoughness;
-    Spectrum eta;
     bool remapRoughness;
+
+    FloatTexture base_weight;
+    SpectrumTexture base_color;
+    FloatTexture base_metalness;
+    FloatTexture base_diffuse_roughness;
+
+    FloatTexture specular_weight;
+    SpectrumTexture specular_color;
+    FloatTexture specular_roughness;
+    FloatTexture specular_roughness_anisotropy;
+    Spectrum specular_ior;
 };
 
 // CookTorranceMaterial Definition

@@ -913,6 +913,10 @@ if (PBRT_WITH_OIDN)
 endif()
 
 
+target_include_directories (pbrt_lib SYSTEM PUBLIC ${GLM_INCLUDE_DIR})
+target_include_directories (pbrt_lib SYSTEM PUBLIC ${OPENPBR_INCLUDE_DIR})
+
+
 if (PBRT_CUDA_ENABLED AND PBRT_OPTIX7_PATH)
     target_include_directories (pbrt_lib SYSTEM PUBLIC ${PBRT_OPTIX7_PATH}/include)
 endif ()

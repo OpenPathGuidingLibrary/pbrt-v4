@@ -256,32 +256,32 @@ template <typename TextureEvaluator>
 OpenPBRBxDF OpenPBRMaterial::GetBxDF(TextureEvaluator texEval,
                                                  const MaterialEvalContext &ctx,
                                                  SampledWavelengths &lambda) const {
-    // Initialize diffuse component of plastic material
-    SampledSpectrum r = Clamp(texEval(reflectance, ctx, lambda), 0, 1);
+    // Initialize base component
+    Float base_weight_ = texEval(base_weight, ctx);
+    SampledSpectrum base_color_ = Clamp(texEval(base_color, ctx, lambda), 0, 1);
+    Float base_metalness_ = texEval(base_metalness, ctx);
+    Float base_diffuse_roughness_ = texEval(base_diffuse_roughness, ctx);
 
-    // Create microfacet distribution _distrib_ for coated diffuse material
-    Float urough = texEval(uRoughness, ctx);
-    Float vrough = texEval(vRoughness, ctx);
+    // Initialize specular component
+    Float specular_weight_ = texEval(specular_weight, ctx);
+    SampledSpectrum specular_color_ = Clamp(texEval(specular_color, ctx, lambda), 0, 1);
+    Float specular_roughness_ = texEval(specular_roughness, ctx);
     if (remapRoughness) {
-        urough = TrowbridgeReitzDistribution::RoughnessToAlpha(urough);
-        vrough = TrowbridgeReitzDistribution::RoughnessToAlpha(vrough);
+        specular_roughness_ = TrowbridgeReitzDistribution::RoughnessToAlpha(specular_roughness_);    
     }
-    urough = std::max(0.001f, urough);
-    vrough = std::max(0.001f, vrough);
-    TrowbridgeReitzDistribution distrib(urough, vrough);
+    specular_roughness_ = std::max(0.001f, specular_roughness_);
+    
+    Float specular_roughness_anisotropy_ = texEval(specular_roughness_anisotropy, ctx);
 
-    //Float thick = texEval(thickness, ctx);
+    TrowbridgeReitzDistribution distrib(specular_roughness_, specular_roughness_);
 
-    Float sampledEta = eta(lambda[0]);
-    if (!eta.template Is<ConstantSpectrum>())
+    Float sampledSpecularIOR = specular_ior(lambda[0]);
+    if (!specular_ior.template Is<ConstantSpectrum>())
         lambda.TerminateSecondary();
-    if (sampledEta == 0)
-        sampledEta = 1;
+    if (sampledSpecularIOR == 0)
+        sampledSpecularIOR = 1;
 
-    //SampledSpectrum a = Clamp(texEval(albedo, ctx, lambda), 0, 1);
-    //Float gg = Clamp(texEval(g, ctx), -1, 1);
-
-    return OpenPBRBxDF(r, sampledEta, distrib);
+    return OpenPBRBxDF(base_weight_, base_color_, base_metalness_, base_diffuse_roughness_, specular_weight_, specular_color_, specular_roughness_, specular_roughness_anisotropy_, sampledSpecularIOR);
 }
 
 // Explicit template instantiation
@@ -294,54 +294,64 @@ template OpenPBRBxDF OpenPBRMaterial::GetBxDF(
 
 std::string OpenPBRMaterial::ToString() const {
     return StringPrintf(
-        "[ OpenPBRMaterial displacement: %s normalMap: %s reflectance: %s "
-        "uRoughness: %s vRoughness: %s eta: %s remapRoughness: %s ]",
+        "[ OpenPBRMaterial displacement: %s normalMap: %s base_color: %s "
+        "specular_roughness: %s specular_roughness_anisotropy: %s specular_ior: %s remapRoughness: %s ]",
         displacement, normalMap ? normalMap->ToString() : std::string("(nullptr)"),
-        reflectance, uRoughness, vRoughness, eta, remapRoughness);
+        base_color, specular_roughness, specular_roughness_anisotropy, specular_ior, remapRoughness);
 }
 
 OpenPBRMaterial *OpenPBRMaterial::Create(
     const TextureParameterDictionary &parameters, Image *normalMap, const FileLoc *loc,
     Allocator alloc) {
-    SpectrumTexture reflectance = parameters.GetSpectrumTexture(
-        "reflectance", nullptr, SpectrumType::Albedo, alloc);
-    if (!reflectance)
-        reflectance = alloc.new_object<SpectrumConstantTexture>(
-            alloc.new_object<ConstantSpectrum>(0.5f));
+    FloatTexture base_weight = parameters.GetFloatTextureOrNull("base_weight", alloc);
+     if (!base_weight)
+        base_weight = parameters.GetFloatTexture("base_weight", 1.f, alloc);
 
-    FloatTexture uRoughness = parameters.GetFloatTextureOrNull("uroughness", alloc);
-    FloatTexture vRoughness = parameters.GetFloatTextureOrNull("vroughness", alloc);
-    if (!uRoughness)
-        uRoughness = parameters.GetFloatTexture("roughness", 0.f, alloc);
-    if (!vRoughness)
-        vRoughness = parameters.GetFloatTexture("roughness", 0.f, alloc);
+    SpectrumTexture base_color = parameters.GetSpectrumTexture(
+        "base_color", nullptr, SpectrumType::Albedo, alloc);
+    if (!base_color)
+        base_color = alloc.new_object<SpectrumConstantTexture>(
+            alloc.new_object<ConstantSpectrum>(0.8f));
 
-    //FloatTexture thickness = parameters.GetFloatTexture("thickness", .01, alloc);
+    FloatTexture base_metalness = parameters.GetFloatTextureOrNull("base_metalness", alloc);
+     if (!base_metalness)
+        base_metalness = parameters.GetFloatTexture("base_metalness", 1.f, alloc);
 
-    Spectrum eta;
-    if (!parameters.GetFloatArray("eta").empty())
-        eta = alloc.new_object<ConstantSpectrum>(parameters.GetFloatArray("eta")[0]);
+    FloatTexture base_diffuse_roughness = parameters.GetFloatTextureOrNull("base_diffuse_roughness", alloc);
+     if (!base_diffuse_roughness)
+        base_diffuse_roughness = parameters.GetFloatTexture("base_diffuse_roughness", 1.f, alloc);
+
+
+    FloatTexture specular_weight = parameters.GetFloatTextureOrNull("specular_weight", alloc);
+    if (!specular_weight)
+        specular_weight = parameters.GetFloatTexture("specular_weight", 1.f, alloc);
+    SpectrumTexture specular_color = parameters.GetSpectrumTexture(
+        "specular_color", nullptr, SpectrumType::Albedo, alloc);
+    if (!specular_color)
+        specular_color = alloc.new_object<SpectrumConstantTexture>(
+            alloc.new_object<ConstantSpectrum>(1.0f));
+    FloatTexture specular_roughness = parameters.GetFloatTextureOrNull("specular_roughness", alloc);
+     if (!specular_roughness)
+        specular_roughness = parameters.GetFloatTexture("specular_roughness", 0.3f, alloc);
+    FloatTexture specular_roughness_anisotropy = parameters.GetFloatTextureOrNull("specular_roughness_anisotropy", alloc);
+     if (!specular_roughness_anisotropy)
+        specular_roughness_anisotropy = parameters.GetFloatTexture("specular_roughness_anisotropy", 0.f, alloc);
+
+    Spectrum specular_ior;
+    if (!parameters.GetFloatArray("specular_ior").empty())
+        specular_ior = alloc.new_object<ConstantSpectrum>(parameters.GetFloatArray("specular_ior")[0]);
     else
-        eta = parameters.GetOneSpectrum("eta", nullptr, SpectrumType::Unbounded, alloc);
-    if (!eta)
-        eta = alloc.new_object<ConstantSpectrum>(1.5f);
-
-    //int maxDepth = parameters.GetOneInt("maxdepth", 10);
-    //int nSamples = parameters.GetOneInt("nsamples", 1);
-
-    //FloatTexture g = parameters.GetFloatTexture("g", 0.f, alloc);
-    SpectrumTexture albedo =
-        parameters.GetSpectrumTexture("albedo", nullptr, SpectrumType::Albedo, alloc);
-    if (!albedo)
-        albedo = alloc.new_object<SpectrumConstantTexture>(
-            alloc.new_object<ConstantSpectrum>(0.f));
+        specular_ior = parameters.GetOneSpectrum("specular_ior", nullptr, SpectrumType::Unbounded, alloc);
+    if (!specular_ior)
+        specular_ior = alloc.new_object<ConstantSpectrum>(1.5f);
 
     FloatTexture displacement = parameters.GetFloatTextureOrNull("displacement", alloc);
     bool remapRoughness = parameters.GetOneBool("remaproughness", true);
 
     return alloc.new_object<OpenPBRMaterial>(
-        reflectance, uRoughness, vRoughness, albedo, eta, displacement,
-        normalMap, remapRoughness);
+        base_weight, base_color, base_metalness, base_diffuse_roughness, 
+        specular_weight, specular_color, specular_roughness, specular_roughness_anisotropy, specular_ior,
+        displacement, normalMap, remapRoughness);
 }
 
 // CookTorranceMaterial Method Definitions

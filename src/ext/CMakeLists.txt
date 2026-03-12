@@ -305,3 +305,15 @@ if (PBRT_WITH_PATH_GUIDING)
   endif()
 
 endif()
+
+
+set (GLM_INCLUDE_DIR 
+  ${CMAKE_CURRENT_SOURCE_DIR}/glm
+  PARENT_SCOPE
+  )
+
+set (OPENPBR_INCLUDE_DIR 
+  ${CMAKE_CURRENT_SOURCE_DIR}/openpbr-bsdf
+  PARENT_SCOPE
+  )
+
