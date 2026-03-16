@@ -561,7 +561,11 @@ class OpenPBRMaterial {
                           FloatTexture base_metalness, FloatTexture base_diffuse_roughness, 
                           FloatTexture specular_weight, SpectrumTexture specular_color,
                           FloatTexture specular_roughness, FloatTexture specular_roughness_anisotropy,
-                          Spectrum specular_ior, FloatTexture displacement, Image *normalMap,
+                          FloatTexture specular_ior, FloatTexture coat_weight, SpectrumTexture coat_color,
+                          FloatTexture coat_roughness, FloatTexture coat_roughness_anisotropy,
+                          FloatTexture coat_ior, FloatTexture coat_darkening,
+                          FloatTexture fuzz_weight, SpectrumTexture fuzz_color, FloatTexture fuzz_roughness,
+                          FloatTexture displacement, Image *normalMap,
                           bool remapRoughness)
         : displacement(displacement),
           normalMap(normalMap),
@@ -574,14 +578,26 @@ class OpenPBRMaterial {
           specular_roughness(specular_roughness),
           specular_roughness_anisotropy(specular_roughness_anisotropy),
           specular_ior(specular_ior),
+          coat_weight(coat_weight),
+          coat_color(coat_color),
+          coat_roughness(coat_roughness),
+          coat_roughness_anisotropy(coat_roughness_anisotropy),
+          coat_ior(coat_ior),
+          coat_darkening(coat_darkening),
+          fuzz_weight(fuzz_weight),
+          fuzz_color(fuzz_color),
+          fuzz_roughness(fuzz_roughness),
           remapRoughness(remapRoughness) {}
 
     static const char *Name() { return "OpenPBRMaterial"; }
 
     template <typename TextureEvaluator>
     PBRT_CPU_GPU bool CanEvaluateTextures(TextureEvaluator texEval) const {
-        return texEval.CanEvaluate({base_weight, base_metalness, base_diffuse_roughness, specular_weight, specular_roughness, specular_roughness_anisotropy},
-                                   {base_color, specular_color});
+        return texEval.CanEvaluate({base_weight, base_metalness, base_diffuse_roughness, 
+                                    specular_weight, specular_roughness, specular_roughness_anisotropy, specular_ior,
+                                    coat_weight, coat_roughness, coat_roughness_anisotropy, coat_ior, coat_darkening,
+                                    fuzz_weight, fuzz_roughness,},
+                                   {base_color, specular_color, coat_color, fuzz_color});
     }
 
     template <typename TextureEvaluator>
@@ -621,7 +637,18 @@ class OpenPBRMaterial {
     SpectrumTexture specular_color;
     FloatTexture specular_roughness;
     FloatTexture specular_roughness_anisotropy;
-    Spectrum specular_ior;
+    FloatTexture specular_ior;
+
+    FloatTexture coat_weight;
+    SpectrumTexture coat_color;
+    FloatTexture coat_roughness;
+    FloatTexture coat_roughness_anisotropy;
+    FloatTexture coat_ior;
+    FloatTexture coat_darkening;
+
+    FloatTexture fuzz_weight;
+    SpectrumTexture fuzz_color;
+    FloatTexture fuzz_roughness;
 };
 
 // CookTorranceMaterial Definition

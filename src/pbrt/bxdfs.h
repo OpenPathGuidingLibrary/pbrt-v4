@@ -241,7 +241,16 @@ class OpenPBRBxDF {
     SampledSpectrum specular_color,
     Float specular_roughness,
     Float specular_roughness_anisotropy,
-    Float specular_ior)
+    Float specular_ior,
+    Float coat_weight,
+    SampledSpectrum coat_color,
+    Float coat_roughness,
+    Float coat_roughness_anisotropy,
+    Float coat_ior,
+    Float coat_darkening,
+    Float fuzz_weight,
+    SampledSpectrum fuzz_color,
+    Float fuzz_roughness)
         : base_weight(base_weight),
         base_color(base_color),
         base_metalness(base_metalness),
@@ -250,7 +259,15 @@ class OpenPBRBxDF {
         specular_color(specular_color),
         specular_roughness(specular_roughness),
         specular_roughness_anisotropy(specular_roughness_anisotropy),
-        specular_ior(specular_ior)
+        specular_ior(specular_ior),
+        coat_weight(coat_weight),
+        coat_roughness(coat_roughness),
+        coat_roughness_anisotropy(coat_roughness_anisotropy),
+        coat_ior(coat_ior),
+        coat_darkening(coat_darkening),
+        fuzz_weight(fuzz_weight),
+        fuzz_color(fuzz_color),
+        fuzz_roughness(fuzz_roughness)
          {}
 
     PBRT_CPU_GPU
@@ -298,6 +315,17 @@ class OpenPBRBxDF {
     Float specular_roughness;
     Float specular_roughness_anisotropy;
     Float specular_ior;
+
+    Float coat_weight;
+    SampledSpectrum coat_color;
+    Float coat_roughness;
+    Float coat_roughness_anisotropy;
+    Float coat_ior;
+    Float coat_darkening;
+
+    Float fuzz_weight;
+    SampledSpectrum fuzz_color;
+    Float fuzz_roughness;
 };
 
 // DielectricBxDF Definition

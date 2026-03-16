@@ -202,10 +202,22 @@ pstd::optional<BSDFSample> OpenPBRBxDF::Sample_f(
     inputs.base_diffuse_roughness = base_diffuse_roughness;
     
     inputs.specular_weight = specular_weight;
+    inputs.specular_color = vec3(specular_color[0], specular_color[1], specular_color[2]);
     inputs.specular_roughness = specular_roughness;
     inputs.specular_roughness_anisotropy = specular_roughness_anisotropy;
     inputs.specular_ior = specular_ior;
     
+    inputs.coat_weight = coat_weight;
+    inputs.coat_color = vec3(coat_color[0], coat_color[1], coat_color[2]);
+    inputs.coat_roughness = coat_roughness;
+    inputs.coat_roughness_anisotropy = coat_roughness_anisotropy;
+    inputs.coat_ior = coat_ior;
+    inputs.coat_darkening = coat_darkening;
+
+    inputs.fuzz_weight = fuzz_weight;
+    inputs.fuzz_color = vec3(fuzz_color[0], fuzz_color[1], fuzz_color[2]);
+    inputs.fuzz_roughness = fuzz_roughness;
+
     const vec3 view_direction = vec3(wo[0], wo[1], wo[2]);
     const OpenPBR_PreparedBsdf prepared = openpbr_prepare_bsdf_and_volume(inputs,
                                                                       vec3(1.0f),                     // path throughput (for importance sampling)
@@ -238,9 +250,21 @@ SampledSpectrum OpenPBRBxDF::f(Vector3f wo, Vector3f wi, TransportMode mode) con
     inputs.base_diffuse_roughness = base_diffuse_roughness;
     
     inputs.specular_weight = specular_weight;
+    inputs.specular_color = vec3(specular_color[0], specular_color[1], specular_color[2]);
     inputs.specular_roughness = specular_roughness;
     inputs.specular_roughness_anisotropy = specular_roughness_anisotropy;
     inputs.specular_ior = specular_ior;
+
+    inputs.coat_weight = coat_weight;
+    inputs.coat_color = vec3(coat_color[0], coat_color[1], coat_color[2]);
+    inputs.coat_roughness = coat_roughness;
+    inputs.coat_roughness_anisotropy = coat_roughness_anisotropy;
+    inputs.coat_ior = coat_ior;
+    inputs.coat_darkening = coat_darkening;
+
+    inputs.fuzz_weight = fuzz_weight;
+    inputs.fuzz_color = vec3(fuzz_color[0], fuzz_color[1], fuzz_color[2]);
+    inputs.fuzz_roughness = fuzz_roughness;
     
     const vec3 view_direction = vec3(wo[0], wo[1], wo[2]);
     const vec3 light_direction = vec3(wi[0], wi[1], wi[2]);
@@ -271,9 +295,21 @@ Float OpenPBRBxDF::PDF(Vector3f wo, Vector3f wi, TransportMode mode,
     inputs.base_diffuse_roughness = base_diffuse_roughness;
     
     inputs.specular_weight = specular_weight;
+    inputs.specular_color = vec3(specular_color[0], specular_color[1], specular_color[2]);
     inputs.specular_roughness = specular_roughness;
     inputs.specular_roughness_anisotropy = specular_roughness_anisotropy;
     inputs.specular_ior = specular_ior;
+    
+    inputs.coat_weight = coat_weight;
+    inputs.coat_color = vec3(coat_color[0], coat_color[1], coat_color[2]);
+    inputs.coat_roughness = coat_roughness;
+    inputs.coat_roughness_anisotropy = coat_roughness_anisotropy;
+    inputs.coat_ior = coat_ior;
+    inputs.coat_darkening = coat_darkening;
+
+    inputs.fuzz_weight = fuzz_weight;
+    inputs.fuzz_color = vec3(fuzz_color[0], fuzz_color[1], fuzz_color[2]);
+    inputs.fuzz_roughness = fuzz_roughness;
     
     
     const vec3 view_direction = vec3(wo[0], wo[1], wo[2]);
