@@ -231,18 +231,20 @@ pstd::optional<BSDFSample> OpenPBRBxDF::Sample_f(
     OpenPBR_BsdfLobeType lobe_type;
     openpbr_sample(prepared, sample, light_direction, weight, pdf, lobe_type);
     Vector3f wi = Vector3f(light_direction.x,light_direction.y,light_direction.z);
+    Float cosineTheta = std::abs(wi[2]); 
     if (pdf > 0.0f) {
         const vec3 weight_sum = openpbr_get_sum_of_diffuse_specular(weight);
         SampledSpectrum f;
         f[0] = weight_sum.x;
         f[1] = weight_sum.y;
         f[2] = weight_sum.z;
-        return BSDFSample(f*pdf, wi, pdf, BxDFFlags::GlossyReflection | BxDFFlags::DiffuseReflection, 0.5f);
+        return BSDFSample((f*pdf) / cosineTheta, wi, pdf, BxDFFlags::GlossyReflection | BxDFFlags::DiffuseReflection, 0.5f);
     }
     return {};
 }
 
 SampledSpectrum OpenPBRBxDF::f(Vector3f wo, Vector3f wi, TransportMode mode) const {
+    Float cosineTheta = std::abs(wi[2]); 
     OpenPBR_ResolvedInputs inputs = openpbr_make_default_resolved_inputs();
     inputs.base_weight = base_weight;
     inputs.base_color = vec3(base_color[0], base_color[1], base_color[2]);  // terracotta
@@ -279,7 +281,7 @@ SampledSpectrum OpenPBRBxDF::f(Vector3f wo, Vector3f wi, TransportMode mode) con
     f[0] = eval_sum.x;
     f[1] = eval_sum.y;
     f[2] = eval_sum.z;
-    return f;
+    return f / cosineTheta;
 }
 
 Float OpenPBRBxDF::PDF(Vector3f wo, Vector3f wi, TransportMode mode,
