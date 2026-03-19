@@ -330,7 +330,7 @@ OpenPBRMaterial *OpenPBRMaterial::Create(
 
     FloatTexture base_diffuse_roughness = parameters.GetFloatTextureOrNull("base_diffuse_roughness", alloc);
      if (!base_diffuse_roughness)
-        base_diffuse_roughness = parameters.GetFloatTexture("base_diffuse_roughness", 1.f, alloc);
+        base_diffuse_roughness = parameters.GetFloatTexture("base_diffuse_roughness", 0.f, alloc);
 
 
     FloatTexture specular_weight = parameters.GetFloatTextureOrNull("specular_weight", alloc);

@@ -261,6 +261,7 @@ class OpenPBRBxDF {
         specular_roughness_anisotropy(specular_roughness_anisotropy),
         specular_ior(specular_ior),
         coat_weight(coat_weight),
+        coat_color(coat_color),
         coat_roughness(coat_roughness),
         coat_roughness_anisotropy(coat_roughness_anisotropy),
         coat_ior(coat_ior),
