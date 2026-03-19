@@ -217,7 +217,7 @@ class SimplePathIntegrator : public RayIntegrator {
 class PathIntegrator : public RayIntegrator {
   public:
     // PathIntegrator Public Methods
-    PathIntegrator(int maxDepth, Camera camera, Sampler sampler, Primitive aggregate,
+    PathIntegrator(int maxDepth, int minRRDepth, Camera camera, Sampler sampler, Primitive aggregate,
                    std::vector<Light> lights,
                    const std::string &lightSampleStrategy = "bvh",
                    bool regularize = false);
@@ -241,6 +241,7 @@ class PathIntegrator : public RayIntegrator {
 
     // PathIntegrator Private Members
     int maxDepth;
+    int minRRDepth;
     LightSampler lightSampler;
     bool regularize;
 };
@@ -364,12 +365,13 @@ class SimpleVolPathIntegrator : public RayIntegrator {
 class VolPathIntegrator : public RayIntegrator {
   public:
     // VolPathIntegrator Public Methods
-    VolPathIntegrator(int maxDepth, Camera camera, Sampler sampler, Primitive aggregate,
+    VolPathIntegrator(int maxDepth, int minRRDepth, Camera camera, Sampler sampler, Primitive aggregate,
                       std::vector<Light> lights,
                       const std::string &lightSampleStrategy = "bvh",
                       bool regularize = false)
         : RayIntegrator(camera, sampler, aggregate, lights),
           maxDepth(maxDepth),
+          minRRDepth(minRRDepth),
           lightSampler(LightSampler::Create(lightSampleStrategy, lights, Allocator())),
           regularize(regularize) {}
 
@@ -391,6 +393,7 @@ class VolPathIntegrator : public RayIntegrator {
 
     // VolPathIntegrator Private Members
     int maxDepth;
+    int minRRDepth;
     LightSampler lightSampler;
     bool regularize;
 };

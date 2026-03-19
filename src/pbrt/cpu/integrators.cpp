@@ -628,11 +628,12 @@ STAT_PERCENT("Integrator/Regularized BSDFs", regularizedPhases, totalPhases);
 STAT_INT_DISTRIBUTION("Integrator/Path length", pathLength);
 
 // PathIntegrator Method Definitions
-PathIntegrator::PathIntegrator(int maxDepth, Camera camera, Sampler sampler,
+PathIntegrator::PathIntegrator(int maxDepth, int minRRDepth, Camera camera, Sampler sampler,
                                Primitive aggregate, std::vector<Light> lights,
                                const std::string &lightSampleStrategy, bool regularize)
     : RayIntegrator(camera, sampler, aggregate, lights),
       maxDepth(maxDepth),
+      minRRDepth(minRRDepth),
       lightSampler(LightSampler::Create(lightSampleStrategy, lights, Allocator())),
       regularize(regularize) {}
 
@@ -765,7 +766,7 @@ SampledSpectrum PathIntegrator::Li(Point2i pPixel, RayDifferential ray, SampledW
 
         // Possibly terminate the path with Russian roulette
         SampledSpectrum rrBeta = beta * etaScale;
-        if (rrBeta.MaxComponentValue() < 1 && depth > 1) {
+        if (rrBeta.MaxComponentValue() < 1 && depth > minRRDepth) {
             Float q = std::max<Float>(0, 1 - rrBeta.MaxComponentValue());
             if (sampler.Get1D() < q)
                 break;
@@ -829,9 +830,10 @@ std::unique_ptr<PathIntegrator> PathIntegrator::Create(
     const ParameterDictionary &parameters, Camera camera, Sampler sampler,
     Primitive aggregate, std::vector<Light> lights, const FileLoc *loc) {
     int maxDepth = parameters.GetOneInt("maxdepth", 5);
+    int minRRDepth = parameters.GetOneInt("minrrdepth", 1);
     std::string lightStrategy = parameters.GetOneString("lightsampler", "bvh");
     bool regularize = parameters.GetOneBool("regularize", false);
-    return std::make_unique<PathIntegrator>(maxDepth, camera, sampler, aggregate, lights,
+    return std::make_unique<PathIntegrator>(maxDepth, minRRDepth, camera, sampler, aggregate, lights,
                                             lightStrategy, regularize);
 }
 
@@ -1291,7 +1293,7 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
         Float uRR = sampler.Get1D();
         PBRT_DBG("%s\n",
                  StringPrintf("etaScale %f -> rrBeta %s", etaScale, rrBeta).c_str());
-        if (rrBeta.MaxComponentValue() < 1 && depth > 1) {
+        if (rrBeta.MaxComponentValue() < 1 && depth > minRRDepth) {
             Float q = std::max<Float>(0, 1 - rrBeta.MaxComponentValue());
             if (uRR < q)
                 break;
@@ -1430,9 +1432,10 @@ std::unique_ptr<VolPathIntegrator> VolPathIntegrator::Create(
     const ParameterDictionary &parameters, Camera camera, Sampler sampler,
     Primitive aggregate, std::vector<Light> lights, const FileLoc *loc) {
     int maxDepth = parameters.GetOneInt("maxdepth", 5);
+    int minRRDepth = parameters.GetOneInt("minrrdepth", 1);
     std::string lightStrategy = parameters.GetOneString("lightsampler", "bvh");
     bool regularize = parameters.GetOneBool("regularize", false);
-    return std::make_unique<VolPathIntegrator>(maxDepth, camera, sampler, aggregate,
+    return std::make_unique<VolPathIntegrator>(maxDepth, minRRDepth, camera, sampler, aggregate,
                                                lights, lightStrategy, regularize);
 }
 
