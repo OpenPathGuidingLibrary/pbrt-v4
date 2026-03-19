@@ -273,6 +273,16 @@ OpenPBRBxDF OpenPBRMaterial::GetBxDF(TextureEvaluator texEval,
     Float specular_roughness_anisotropy_ = texEval(specular_roughness_anisotropy, ctx);
     Float specular_ior_ = texEval(specular_ior, ctx);
 
+    // Initialize transmission component
+    Float transmission_weight_ = texEval(transmission_weight, ctx);
+    SampledSpectrum transmission_color_ = Clamp(texEval(transmission_color, ctx, lambda), 0, 1);
+    Float transmission_depth_ = texEval(transmission_depth, ctx);
+    SampledSpectrum transmission_scatter_ = Clamp(texEval(transmission_scatter, ctx, lambda), 0, 1);
+    Float transmission_scatter_anisotropy_ = texEval(transmission_scatter_anisotropy, ctx);
+    Float transmission_dispersion_scale_ = texEval(transmission_dispersion_scale, ctx);
+    Float transmission_dispersion_abbe_number_ = texEval(transmission_dispersion_abbe_number, ctx);
+
+    // Initialize coat component
     Float coat_weight_ = texEval(coat_weight, ctx);
     SampledSpectrum coat_color_ = Clamp(texEval(coat_color, ctx, lambda), 0, 1);
     Float coat_roughness_ = texEval(coat_roughness, ctx);
@@ -291,7 +301,8 @@ OpenPBRBxDF OpenPBRMaterial::GetBxDF(TextureEvaluator texEval,
         fuzz_roughness_ = TrowbridgeReitzDistribution::RoughnessToAlpha(fuzz_roughness_);    
     }
     return OpenPBRBxDF(base_weight_, base_color_, base_metalness_, base_diffuse_roughness_, specular_weight_, specular_color_, specular_roughness_, specular_roughness_anisotropy_, specular_ior_,
-    coat_weight_, coat_color_, coat_roughness_, coat_roughness_anisotropy_, coat_ior_, coat_darkening_,
+        transmission_weight_, transmission_color_, transmission_depth_, transmission_scatter_, transmission_scatter_anisotropy_, transmission_dispersion_scale_, transmission_dispersion_abbe_number_,
+        coat_weight_, coat_color_, coat_roughness_, coat_roughness_anisotropy_, coat_ior_, coat_darkening_,
     fuzz_weight_, fuzz_color_, fuzz_roughness_);
 }
 
@@ -351,6 +362,32 @@ OpenPBRMaterial *OpenPBRMaterial::Create(
      if (!specular_ior)
         specular_ior = parameters.GetFloatTexture("specular_ior", 1.5f, alloc);
 
+    FloatTexture transmission_weight = parameters.GetFloatTextureOrNull("transmission_weight", alloc);
+    if (!transmission_weight)
+        transmission_weight = parameters.GetFloatTexture("transmission_weight", 0.f, alloc);
+    SpectrumTexture transmission_color = parameters.GetSpectrumTexture(
+        "transmission_color", nullptr, SpectrumType::Albedo, alloc);
+    if (!transmission_color)
+        transmission_color = alloc.new_object<SpectrumConstantTexture>(
+            alloc.new_object<ConstantSpectrum>(1.0f));
+    FloatTexture transmission_depth = parameters.GetFloatTextureOrNull("transmission_depth", alloc);
+     if (!transmission_depth)
+        transmission_depth = parameters.GetFloatTexture("transmission_depth", 0.0f, alloc);
+    SpectrumTexture transmission_scatter = parameters.GetSpectrumTexture(
+        "transmission_scatter", nullptr, SpectrumType::Albedo, alloc);
+    if (!transmission_scatter)
+        transmission_scatter = alloc.new_object<SpectrumConstantTexture>(
+            alloc.new_object<ConstantSpectrum>(0.0f));
+    FloatTexture transmission_scatter_anisotropy = parameters.GetFloatTextureOrNull("transmission_scatter_anisotropy", alloc);
+     if (!transmission_scatter_anisotropy)
+        transmission_scatter_anisotropy = parameters.GetFloatTexture("transmission_scatter_anisotropy", 0.f, alloc);
+    FloatTexture transmission_dispersion_scale = parameters.GetFloatTextureOrNull("transmission_dispersion_scale", alloc);
+     if (!transmission_dispersion_scale)
+        transmission_dispersion_scale = parameters.GetFloatTexture("transmission_dispersion_scale", 0.0f, alloc);
+    FloatTexture transmission_dispersion_abbe_number = parameters.GetFloatTextureOrNull("transmission_dispersion_abbe_number", alloc);
+     if (!transmission_dispersion_abbe_number)
+        transmission_dispersion_abbe_number = parameters.GetFloatTexture("transmission_dispersion_abbe_number", 20.0f, alloc);
+
 
     FloatTexture coat_weight = parameters.GetFloatTextureOrNull("coat_weight", alloc);
     if (!coat_weight)
@@ -392,6 +429,7 @@ OpenPBRMaterial *OpenPBRMaterial::Create(
     return alloc.new_object<OpenPBRMaterial>(
         base_weight, base_color, base_metalness, base_diffuse_roughness, 
         specular_weight, specular_color, specular_roughness, specular_roughness_anisotropy, specular_ior,
+        transmission_weight, transmission_color, transmission_depth, transmission_scatter, transmission_scatter_anisotropy, transmission_dispersion_scale, transmission_dispersion_abbe_number,
         coat_weight, coat_color, coat_roughness, coat_roughness_anisotropy, coat_ior, coat_darkening,
         fuzz_weight, fuzz_color, fuzz_roughness,
         displacement, normalMap, remapRoughness);

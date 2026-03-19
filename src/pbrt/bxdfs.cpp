@@ -207,6 +207,14 @@ pstd::optional<BSDFSample> OpenPBRBxDF::Sample_f(
     inputs.specular_roughness_anisotropy = specular_roughness_anisotropy;
     inputs.specular_ior = specular_ior;
     
+    inputs.transmission_weight = transmission_weight;
+    inputs.transmission_color = vec3(transmission_color[0], transmission_color[1], transmission_color[2]);
+    inputs.transmission_depth = transmission_depth;
+    inputs.transmission_scatter = vec3(transmission_scatter[0], transmission_scatter[1], transmission_scatter[2]);
+    inputs.transmission_scatter_anisotropy = transmission_scatter_anisotropy;
+    inputs.transmission_dispersion_scale = transmission_dispersion_scale;
+    inputs.transmission_dispersion_abbe_number = transmission_dispersion_abbe_number;
+
     inputs.coat_weight = coat_weight;
     inputs.coat_color = vec3(coat_color[0], coat_color[1], coat_color[2]);
     inputs.coat_roughness = coat_roughness;
@@ -257,6 +265,14 @@ SampledSpectrum OpenPBRBxDF::f(Vector3f wo, Vector3f wi, TransportMode mode) con
     inputs.specular_roughness_anisotropy = specular_roughness_anisotropy;
     inputs.specular_ior = specular_ior;
 
+    inputs.transmission_weight = transmission_weight;
+    inputs.transmission_color = vec3(transmission_color[0], transmission_color[1], transmission_color[2]);
+    inputs.transmission_depth = transmission_depth;
+    inputs.transmission_scatter = vec3(transmission_scatter[0], transmission_scatter[1], transmission_scatter[2]);
+    inputs.transmission_scatter_anisotropy = transmission_scatter_anisotropy;
+    inputs.transmission_dispersion_scale = transmission_dispersion_scale;
+    inputs.transmission_dispersion_abbe_number = transmission_dispersion_abbe_number;
+
     inputs.coat_weight = coat_weight;
     inputs.coat_color = vec3(coat_color[0], coat_color[1], coat_color[2]);
     inputs.coat_roughness = coat_roughness;
@@ -287,8 +303,8 @@ SampledSpectrum OpenPBRBxDF::f(Vector3f wo, Vector3f wi, TransportMode mode) con
 Float OpenPBRBxDF::PDF(Vector3f wo, Vector3f wi, TransportMode mode,
                           BxDFReflTransFlags sampleFlags) const {
     
-    if (!(sampleFlags & BxDFReflTransFlags::Reflection) || !SameHemisphere(wo, wi))
-        return 0.f;
+    //if (!(sampleFlags & BxDFReflTransFlags::Reflection) || !SameHemisphere(wo, wi))
+    //    return 0.f;
 
     OpenPBR_ResolvedInputs inputs = openpbr_make_default_resolved_inputs();
     inputs.base_weight = base_weight;
@@ -301,7 +317,15 @@ Float OpenPBRBxDF::PDF(Vector3f wo, Vector3f wi, TransportMode mode,
     inputs.specular_roughness = specular_roughness;
     inputs.specular_roughness_anisotropy = specular_roughness_anisotropy;
     inputs.specular_ior = specular_ior;
-    
+ 
+    inputs.transmission_weight = transmission_weight;
+    inputs.transmission_color = vec3(transmission_color[0], transmission_color[1], transmission_color[2]);
+    inputs.transmission_depth = transmission_depth;
+    inputs.transmission_scatter = vec3(transmission_scatter[0], transmission_scatter[1], transmission_scatter[2]);
+    inputs.transmission_scatter_anisotropy = transmission_scatter_anisotropy;
+    inputs.transmission_dispersion_scale = transmission_dispersion_scale;
+    inputs.transmission_dispersion_abbe_number = transmission_dispersion_abbe_number;
+
     inputs.coat_weight = coat_weight;
     inputs.coat_color = vec3(coat_color[0], coat_color[1], coat_color[2]);
     inputs.coat_roughness = coat_roughness;

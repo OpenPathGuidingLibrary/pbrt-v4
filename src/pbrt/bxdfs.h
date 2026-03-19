@@ -242,6 +242,13 @@ class OpenPBRBxDF {
     Float specular_roughness,
     Float specular_roughness_anisotropy,
     Float specular_ior,
+    Float transmission_weight,
+    SampledSpectrum transmission_color,
+    Float transmission_depth,
+    SampledSpectrum transmission_scatter,
+    Float transmission_scatter_anisotropy,
+    Float transmission_dispersion_scale,
+    Float transmission_dispersion_abbe_number,
     Float coat_weight,
     SampledSpectrum coat_color,
     Float coat_roughness,
@@ -260,6 +267,13 @@ class OpenPBRBxDF {
         specular_roughness(specular_roughness),
         specular_roughness_anisotropy(specular_roughness_anisotropy),
         specular_ior(specular_ior),
+        transmission_weight(transmission_weight),
+        transmission_color(transmission_color),
+        transmission_depth(transmission_depth),
+        transmission_scatter(transmission_scatter),
+        transmission_scatter_anisotropy(transmission_scatter_anisotropy),
+        transmission_dispersion_scale(transmission_dispersion_scale),
+        transmission_dispersion_abbe_number(transmission_dispersion_abbe_number),
         coat_weight(coat_weight),
         coat_color(coat_color),
         coat_roughness(coat_roughness),
@@ -316,6 +330,14 @@ class OpenPBRBxDF {
     Float specular_roughness;
     Float specular_roughness_anisotropy;
     Float specular_ior;
+
+    Float transmission_weight;
+    SampledSpectrum transmission_color;
+    Float transmission_depth;
+    SampledSpectrum transmission_scatter;
+    Float transmission_scatter_anisotropy;
+    Float transmission_dispersion_scale;
+    Float transmission_dispersion_abbe_number;
 
     Float coat_weight;
     SampledSpectrum coat_color;

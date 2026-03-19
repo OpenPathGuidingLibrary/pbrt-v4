@@ -561,7 +561,15 @@ class OpenPBRMaterial {
                           FloatTexture base_metalness, FloatTexture base_diffuse_roughness, 
                           FloatTexture specular_weight, SpectrumTexture specular_color,
                           FloatTexture specular_roughness, FloatTexture specular_roughness_anisotropy,
-                          FloatTexture specular_ior, FloatTexture coat_weight, SpectrumTexture coat_color,
+                          FloatTexture specular_ior,
+                          FloatTexture transmission_weight,
+                          SpectrumTexture transmission_color,
+                          FloatTexture transmission_depth,
+                          SpectrumTexture transmission_scatter,
+                          FloatTexture transmission_scatter_anisotropy,
+                          FloatTexture transmission_dispersion_scale,
+                          FloatTexture transmission_dispersion_abbe_number,
+                          FloatTexture coat_weight, SpectrumTexture coat_color,
                           FloatTexture coat_roughness, FloatTexture coat_roughness_anisotropy,
                           FloatTexture coat_ior, FloatTexture coat_darkening,
                           FloatTexture fuzz_weight, SpectrumTexture fuzz_color, FloatTexture fuzz_roughness,
@@ -578,6 +586,13 @@ class OpenPBRMaterial {
           specular_roughness(specular_roughness),
           specular_roughness_anisotropy(specular_roughness_anisotropy),
           specular_ior(specular_ior),
+          transmission_weight(transmission_weight),
+          transmission_color(transmission_color),
+          transmission_depth(transmission_depth),
+          transmission_scatter(transmission_scatter),
+          transmission_scatter_anisotropy(transmission_scatter_anisotropy),
+          transmission_dispersion_scale(transmission_dispersion_scale),
+          transmission_dispersion_abbe_number(transmission_dispersion_abbe_number),
           coat_weight(coat_weight),
           coat_color(coat_color),
           coat_roughness(coat_roughness),
@@ -638,6 +653,14 @@ class OpenPBRMaterial {
     FloatTexture specular_roughness;
     FloatTexture specular_roughness_anisotropy;
     FloatTexture specular_ior;
+
+    FloatTexture transmission_weight;
+    SpectrumTexture transmission_color;
+    FloatTexture transmission_depth;
+    SpectrumTexture transmission_scatter;
+    FloatTexture transmission_scatter_anisotropy;
+    FloatTexture transmission_dispersion_scale;
+    FloatTexture transmission_dispersion_abbe_number;
 
     FloatTexture coat_weight;
     SpectrumTexture coat_color;
