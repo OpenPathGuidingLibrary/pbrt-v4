@@ -43,6 +43,11 @@ class DiffuseBxDF {
     }
 
     PBRT_CPU_GPU
+    SampledSpectrum e(Vector3f wo) const {
+        return SampledSpectrum(0.f);
+    }
+
+    PBRT_CPU_GPU
     pstd::optional<BSDFSample> Sample_f(
         Vector3f wo, Float uc, Point2f u, TransportMode mode,
         BxDFReflTransFlags sampleFlags = BxDFReflTransFlags::All) const {
@@ -99,6 +104,11 @@ class DiffuseTransmissionBxDF {
     PBRT_CPU_GPU
     SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const {
         return SameHemisphere(wo, wi) ? (R * InvPi) : (T * InvPi);
+    }
+
+    PBRT_CPU_GPU
+    SampledSpectrum e(Vector3f wo) const {
+        return SampledSpectrum(0.f);
     }
 
     PBRT_CPU_GPU
@@ -202,6 +212,12 @@ class CookTorranceBxDF {
 
     PBRT_CPU_GPU
     SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const;
+
+    PBRT_CPU_GPU
+    SampledSpectrum e(Vector3f wo) const {
+        return SampledSpectrum(0.f);
+    }
+
     PBRT_CPU_GPU
     Float PDF(Vector3f wo, Vector3f wi, TransportMode mode,
               BxDFReflTransFlags sampleFlags = BxDFReflTransFlags::All) const;
@@ -257,7 +273,14 @@ class OpenPBRBxDF {
     Float coat_darkening,
     Float fuzz_weight,
     SampledSpectrum fuzz_color,
-    Float fuzz_roughness)
+    Float fuzz_roughness,
+    Float thin_film_weight,
+    Float thin_film_thickness,
+    Float thin_film_ior,
+    Float emission_luminance,
+    SampledSpectrum emission_color,
+    Normal3f geometry_normal,
+    Vector3f geometry_tangent)
         : base_weight(base_weight),
         base_color(base_color),
         base_metalness(base_metalness),
@@ -282,7 +305,14 @@ class OpenPBRBxDF {
         coat_darkening(coat_darkening),
         fuzz_weight(fuzz_weight),
         fuzz_color(fuzz_color),
-        fuzz_roughness(fuzz_roughness)
+        fuzz_roughness(fuzz_roughness),
+        thin_film_weight(thin_film_weight),
+        thin_film_thickness(thin_film_thickness),
+        thin_film_ior(thin_film_ior),
+        emission_luminance(emission_luminance),
+        emission_color(emission_color),
+        geometry_normal(geometry_normal),
+        geometry_tangent(geometry_tangent)
          {}
 
     PBRT_CPU_GPU
@@ -301,6 +331,9 @@ class OpenPBRBxDF {
 
     PBRT_CPU_GPU
     SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const;
+
+    PBRT_CPU_GPU
+    SampledSpectrum e(Vector3f wo) const;
     PBRT_CPU_GPU
     Float PDF(Vector3f wo, Vector3f wi, TransportMode mode,
               BxDFReflTransFlags sampleFlags = BxDFReflTransFlags::All) const;
@@ -349,6 +382,16 @@ class OpenPBRBxDF {
     Float fuzz_weight;
     SampledSpectrum fuzz_color;
     Float fuzz_roughness;
+
+    Float thin_film_weight;
+    Float thin_film_thickness;
+    Float thin_film_ior;
+
+    Float emission_luminance;
+    SampledSpectrum emission_color;
+
+    Normal3f geometry_normal;
+    Vector3f geometry_tangent;
 };
 
 // DielectricBxDF Definition
@@ -375,6 +418,12 @@ class DielectricBxDF {
 
     PBRT_CPU_GPU
     SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const;
+
+    PBRT_CPU_GPU
+    SampledSpectrum e(Vector3f wo) const {
+        return SampledSpectrum(0.f);
+    }
+
     PBRT_CPU_GPU
     Float PDF(Vector3f wo, Vector3f wi, TransportMode mode,
               BxDFReflTransFlags sampleFlags = BxDFReflTransFlags::All) const;
@@ -410,6 +459,11 @@ class ThinDielectricBxDF {
     PBRT_CPU_GPU
     SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const {
         return SampledSpectrum(0);
+    }
+
+    PBRT_CPU_GPU
+    SampledSpectrum e(Vector3f wo) const {
+        return SampledSpectrum(0.f);
     }
 
     PBRT_CPU_GPU
@@ -550,6 +604,11 @@ class ConductorBxDF {
     }
 
     PBRT_CPU_GPU
+    SampledSpectrum e(Vector3f wo) const {
+        return SampledSpectrum(0.f);
+    }
+
+    PBRT_CPU_GPU
     Float PDF(Vector3f wo, Vector3f wi, TransportMode mode,
               BxDFReflTransFlags sampleFlags) const {
         if (!(sampleFlags & BxDFReflTransFlags::Reflection))
@@ -608,6 +667,11 @@ class TopOrBottomBxDF {
     PBRT_CPU_GPU
     SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const {
         return top ? top->f(wo, wi, mode) : bottom->f(wo, wi, mode);
+    }
+
+    PBRT_CPU_GPU
+    SampledSpectrum e(Vector3f wo) const {
+        return top ? top->e(wo) : bottom->e(wo);
     }
 
     PBRT_CPU_GPU
@@ -856,6 +920,11 @@ class LayeredBxDF {
         }
 
         return f / nSamples;
+    }
+
+    PBRT_CPU_GPU
+    SampledSpectrum e(Vector3f wo) const {
+        return SampledSpectrum(0.f);
     }
 
     PBRT_CPU_GPU
@@ -1141,6 +1210,12 @@ class HairBxDF {
              Float beta_n, Float alpha);
     PBRT_CPU_GPU
     SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const;
+
+    PBRT_CPU_GPU
+    SampledSpectrum e(Vector3f wo) const {
+        return SampledSpectrum(0.f);
+    }
+
     PBRT_CPU_GPU
     pstd::optional<BSDFSample> Sample_f(Vector3f wo, Float uc, Point2f u,
                                         TransportMode mode,
@@ -1254,6 +1329,11 @@ class MeasuredBxDF {
     SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const;
 
     PBRT_CPU_GPU
+    SampledSpectrum e(Vector3f wo) const {
+        return SampledSpectrum(0.f);
+    }
+
+    PBRT_CPU_GPU
     pstd::optional<BSDFSample> Sample_f(Vector3f wo, Float uc, Point2f u,
                                         TransportMode mode,
                                         BxDFReflTransFlags sampleFlags) const;
@@ -1359,6 +1439,11 @@ class NormalizedFresnelBxDF {
         return f;
     }
 
+    PBRT_CPU_GPU
+    SampledSpectrum e(Vector3f wo) const {
+        return SampledSpectrum(0.f);
+    }
+
   private:
     Float eta;
 };
@@ -1366,6 +1451,11 @@ class NormalizedFresnelBxDF {
 PBRT_CPU_GPU inline SampledSpectrum BxDF::f(Vector3f wo, Vector3f wi, TransportMode mode) const {
     auto f = [&](auto ptr) -> SampledSpectrum { return ptr->f(wo, wi, mode); };
     return Dispatch(f);
+}
+
+PBRT_CPU_GPU inline SampledSpectrum BxDF::e(Vector3f wo) const {
+    auto e = [&](auto ptr) -> SampledSpectrum { return ptr->e(wo); };
+    return Dispatch(e);
 }
 
 PBRT_CPU_GPU inline pstd::optional<BSDFSample> BxDF::Sample_f(Vector3f wo, Float uc, Point2f u,

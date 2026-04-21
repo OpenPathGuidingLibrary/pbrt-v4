@@ -53,6 +53,7 @@ enum BxDFFlags {
     Diffuse = 1 << 2,
     Glossy = 1 << 3,
     Specular = 1 << 4,
+    Emission = 1 << 5,
     // Composite _BxDFFlags_ definitions
     DiffuseReflection = Diffuse | Reflection,
     DiffuseTransmission = Diffuse | Transmission,
@@ -103,6 +104,10 @@ PBRT_CPU_GPU inline bool IsSpecular(BxDFFlags f) {
 }
 PBRT_CPU_GPU inline bool IsNonSpecular(BxDFFlags f) {
     return f & (BxDFFlags::Diffuse | BxDFFlags::Glossy);
+}
+
+PBRT_CPU_GPU inline bool IsEmissive(BxDFFlags f) {
+    return f & BxDFFlags::Emission;
 }
 
 std::string ToString(BxDFFlags flags);
@@ -186,6 +191,8 @@ class BxDF
 
     PBRT_CPU_GPU inline SampledSpectrum f(Vector3f wo, Vector3f wi,
                                           TransportMode mode) const;
+
+    PBRT_CPU_GPU inline SampledSpectrum e(Vector3f wo) const;
 
     PBRT_CPU_GPU inline pstd::optional<BSDFSample> Sample_f(
         Vector3f wo, Float uc, Point2f u, TransportMode mode = TransportMode::Radiance,

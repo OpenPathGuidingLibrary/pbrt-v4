@@ -573,6 +573,8 @@ class OpenPBRMaterial {
                           FloatTexture coat_roughness, FloatTexture coat_roughness_anisotropy,
                           FloatTexture coat_ior, FloatTexture coat_darkening,
                           FloatTexture fuzz_weight, SpectrumTexture fuzz_color, FloatTexture fuzz_roughness,
+                          FloatTexture emission_luminance, SpectrumTexture emission_color,
+                          FloatTexture thin_film_weight, FloatTexture thin_film_thickness, FloatTexture thin_film_ior,
                           FloatTexture displacement, Image *normalMap,
                           bool remapRoughness)
         : displacement(displacement),
@@ -602,6 +604,11 @@ class OpenPBRMaterial {
           fuzz_weight(fuzz_weight),
           fuzz_color(fuzz_color),
           fuzz_roughness(fuzz_roughness),
+          emission_luminance(emission_luminance),
+          emission_color(emission_color),
+          thin_film_weight(thin_film_weight),
+          thin_film_thickness(thin_film_thickness),
+          thin_film_ior(thin_film_ior),
           remapRoughness(remapRoughness) {}
 
     static const char *Name() { return "OpenPBRMaterial"; }
@@ -611,7 +618,7 @@ class OpenPBRMaterial {
         return texEval.CanEvaluate({base_weight, base_metalness, base_diffuse_roughness, 
                                     specular_weight, specular_roughness, specular_roughness_anisotropy, specular_ior,
                                     coat_weight, coat_roughness, coat_roughness_anisotropy, coat_ior, coat_darkening,
-                                    fuzz_weight, fuzz_roughness,},
+                                    fuzz_weight, fuzz_roughness, thin_film_weight,thin_film_thickness, thin_film_ior},
                                    {base_color, specular_color, coat_color, fuzz_color});
     }
 
@@ -672,6 +679,13 @@ class OpenPBRMaterial {
     FloatTexture fuzz_weight;
     SpectrumTexture fuzz_color;
     FloatTexture fuzz_roughness;
+
+    FloatTexture thin_film_weight;
+    FloatTexture thin_film_thickness;
+    FloatTexture thin_film_ior;
+
+    FloatTexture emission_luminance;
+    SpectrumTexture emission_color;
 };
 
 // CookTorranceMaterial Definition

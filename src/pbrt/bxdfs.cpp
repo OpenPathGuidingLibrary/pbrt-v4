@@ -55,6 +55,8 @@ std::string ToString(BxDFFlags flags) {
         s += "Glossy,";
     if (flags & BxDFFlags::Specular)
         s += "Specular,";
+    if (flags & BxDFFlags::Emission)
+        s += "Emission,";
     return s;
 }
 
@@ -190,6 +192,46 @@ std::string CookTorranceBxDF::ToString() const {
                         mfDistrib.ToString());
 }
 
+inline std::string vec3ToString(vec3 v){
+    return "[" + std::to_string(v[0])+ " "+ std::to_string(v[1]) + " "+ std::to_string(v[2]) +"]";
+}
+
+inline void printOpenPBRParameterInputs(OpenPBR_ResolvedInputs inputs) {
+    std::cout << "base_weight: " <<  inputs.base_weight << std::endl;
+    std::cout << "base_color: " <<  vec3ToString(inputs.base_color) << std::endl;
+    std::cout << "base_metalness: " <<  inputs.base_metalness << std::endl;
+    std::cout << "base_weight: " <<  inputs.base_weight << std::endl;
+
+    std::cout << "specular_weight: " <<  inputs.specular_weight << std::endl;
+    std::cout << "specular_color: " <<  vec3ToString(inputs.specular_color) << std::endl;
+    std::cout << "specular_roughness: " <<  inputs.specular_roughness << std::endl;
+    std::cout << "specular_roughness_anisotropy: " <<  inputs.specular_roughness_anisotropy << std::endl;
+    std::cout << "specular_ior: " <<  inputs.specular_ior << std::endl;
+
+    std::cout << "transmission_weight: " <<  inputs.transmission_weight << std::endl;
+    std::cout << "transmission_color: " <<  vec3ToString(inputs.transmission_color) << std::endl;
+    std::cout << "transmission_depth: " <<  inputs.transmission_depth << std::endl;
+    std::cout << "transmission_scatter: " <<  vec3ToString(inputs.transmission_scatter) << std::endl;
+    std::cout << "transmission_scatter_anisotropy: " <<  inputs.transmission_scatter_anisotropy << std::endl;
+    std::cout << "transmission_dispersion_abbe_number: " <<  inputs.transmission_dispersion_scale << std::endl;
+    std::cout << "specular_ior: " <<  inputs.transmission_dispersion_abbe_number << std::endl;
+
+    std::cout << "coat_weight: " <<  inputs.coat_weight << std::endl;
+    std::cout << "coat_color: " <<  vec3ToString(inputs.coat_color) << std::endl;
+    std::cout << "coat_roughness: " <<  inputs.coat_roughness << std::endl;
+    std::cout << "coat_roughness_anisotropy: " <<  inputs.coat_roughness_anisotropy << std::endl;
+    std::cout << "coat_ior: " <<  inputs.coat_ior << std::endl;
+    std::cout << "coat_darkening: " <<  inputs.coat_darkening << std::endl;
+
+    std::cout << "fuzz_weight: " <<  inputs.fuzz_weight << std::endl;
+    std::cout << "fuzz_color: " <<  vec3ToString(inputs.fuzz_color) << std::endl;
+    std::cout << "fuzz_roughness: " <<  inputs.fuzz_roughness << std::endl;
+
+    std::cout << "emission_luminance: " <<  inputs.emission_luminance << std::endl;
+    std::cout << "emission_color: " <<  vec3ToString(inputs.emission_color) << std::endl;
+    std::cout << std::endl;
+}
+
 // OpenPBRBxDF Method Definitions
 pstd::optional<BSDFSample> OpenPBRBxDF::Sample_f(
     Vector3f wo, Float uc, Point2f u, TransportMode mode,
@@ -226,8 +268,20 @@ pstd::optional<BSDFSample> OpenPBRBxDF::Sample_f(
     inputs.fuzz_color = vec3(fuzz_color[0], fuzz_color[1], fuzz_color[2]);
     inputs.fuzz_roughness = fuzz_roughness;
 
+    inputs.thin_film_weight = thin_film_weight;
+    inputs.thin_film_thickness = thin_film_thickness;
+    inputs.thin_film_ior = thin_film_ior;
+
+    inputs.emission_luminance = emission_luminance;
+    inputs.emission_color = vec3(emission_color[0], emission_color[1], emission_color[2]);
+    
+    inputs.geometry_basis = openpbr_make_basis(vec3(geometry_normal[0],geometry_normal[1],geometry_normal[2]), vec3(geometry_tangent[0],geometry_tangent[1],geometry_tangent[2]), 1.f);
+    //inputs.geometry_basis = openpbr_make_identity_basis();
+    inputs.geometry_coat_basis = inputs.geometry_basis;
+    //printOpenPBRParameterInputs(inputs);
+
     const vec3 view_direction = vec3(wo[0], wo[1], wo[2]);
-    const OpenPBR_PreparedBsdf prepared = openpbr_prepare_bsdf_and_volume(inputs,
+    const OpenPBR_PreparedBsdf prepared = openpbr_prepare(inputs,
                                                                       vec3(1.0f),                     // path throughput (for importance sampling)
                                                                       OpenPBR_BaseRgbWavelengths_nm,  // RGB wavelengths in nanometers
                                                                       OpenPBR_VacuumIor,              // exterior IOR
@@ -283,10 +337,21 @@ SampledSpectrum OpenPBRBxDF::f(Vector3f wo, Vector3f wi, TransportMode mode) con
     inputs.fuzz_weight = fuzz_weight;
     inputs.fuzz_color = vec3(fuzz_color[0], fuzz_color[1], fuzz_color[2]);
     inputs.fuzz_roughness = fuzz_roughness;
-    
+
+    inputs.thin_film_weight = thin_film_weight;
+    inputs.thin_film_thickness = thin_film_thickness;
+    inputs.thin_film_ior = thin_film_ior;
+
+    inputs.emission_luminance = emission_luminance;
+    inputs.emission_color = vec3(emission_color[0], emission_color[1], emission_color[2]);    
+
+    inputs.geometry_basis = openpbr_make_basis(vec3(geometry_normal[0],geometry_normal[1],geometry_normal[2]), vec3(geometry_tangent[0],geometry_tangent[1],geometry_tangent[2]), 1.f);
+    //inputs.geometry_basis = openpbr_make_identity_basis();
+    inputs.geometry_coat_basis = inputs.geometry_basis;
+
     const vec3 view_direction = vec3(wo[0], wo[1], wo[2]);
     const vec3 light_direction = vec3(wi[0], wi[1], wi[2]);
-    const OpenPBR_PreparedBsdf prepared = openpbr_prepare_bsdf_and_volume(inputs,
+    const OpenPBR_PreparedBsdf prepared = openpbr_prepare(inputs,
                                                                       vec3(1.0f),                     // path throughput (for importance sampling)
                                                                       OpenPBR_BaseRgbWavelengths_nm,  // RGB wavelengths in nanometers
                                                                       OpenPBR_VacuumIor,              // exterior IOR
@@ -298,6 +363,60 @@ SampledSpectrum OpenPBRBxDF::f(Vector3f wo, Vector3f wi, TransportMode mode) con
     f[1] = eval_sum.y;
     f[2] = eval_sum.z;
     return f / cosineTheta;
+}
+
+SampledSpectrum OpenPBRBxDF::e(Vector3f wo) const {
+    //Float cosineTheta = std::abs(wi[2]); 
+    OpenPBR_ResolvedInputs inputs = openpbr_make_default_resolved_inputs();
+    inputs.base_weight = base_weight;
+    inputs.base_color = vec3(base_color[0], base_color[1], base_color[2]);  // terracotta
+    inputs.base_metalness = base_metalness;
+    inputs.base_diffuse_roughness = base_diffuse_roughness;
+    
+    inputs.specular_weight = specular_weight;
+    inputs.specular_color = vec3(specular_color[0], specular_color[1], specular_color[2]);
+    inputs.specular_roughness = specular_roughness;
+    inputs.specular_roughness_anisotropy = specular_roughness_anisotropy;
+    inputs.specular_ior = specular_ior;
+
+    inputs.transmission_weight = transmission_weight;
+    inputs.transmission_color = vec3(transmission_color[0], transmission_color[1], transmission_color[2]);
+    inputs.transmission_depth = transmission_depth;
+    inputs.transmission_scatter = vec3(transmission_scatter[0], transmission_scatter[1], transmission_scatter[2]);
+    inputs.transmission_scatter_anisotropy = transmission_scatter_anisotropy;
+    inputs.transmission_dispersion_scale = transmission_dispersion_scale;
+    inputs.transmission_dispersion_abbe_number = transmission_dispersion_abbe_number;
+
+    inputs.coat_weight = coat_weight;
+    inputs.coat_color = vec3(coat_color[0], coat_color[1], coat_color[2]);
+    inputs.coat_roughness = coat_roughness;
+    inputs.coat_roughness_anisotropy = coat_roughness_anisotropy;
+    inputs.coat_ior = coat_ior;
+    inputs.coat_darkening = coat_darkening;
+
+    inputs.fuzz_weight = fuzz_weight;
+    inputs.fuzz_color = vec3(fuzz_color[0], fuzz_color[1], fuzz_color[2]);
+    inputs.fuzz_roughness = fuzz_roughness;
+
+    inputs.thin_film_weight = thin_film_weight;
+    inputs.thin_film_thickness = thin_film_thickness;
+    inputs.thin_film_ior = thin_film_ior;
+
+    inputs.emission_luminance = emission_luminance;
+    inputs.emission_color = vec3(emission_color[0], emission_color[1], emission_color[2]);    
+
+    inputs.geometry_basis = openpbr_make_basis(vec3(geometry_normal[0],geometry_normal[1],geometry_normal[2]), vec3(geometry_tangent[0],geometry_tangent[1],geometry_tangent[2]), 1.f);
+    //inputs.geometry_basis = openpbr_make_identity_basis();
+    inputs.geometry_coat_basis = inputs.geometry_basis;
+
+    const vec3 view_direction = vec3(wo[0], wo[1], wo[2]);
+    const OpenPBR_PreparedBsdf prepared = openpbr_prepare(inputs,
+                                                                      vec3(1.0f),                     // path throughput (for importance sampling)
+                                                                      OpenPBR_BaseRgbWavelengths_nm,  // RGB wavelengths in nanometers
+                                                                      OpenPBR_VacuumIor,              // exterior IOR
+                                                                      view_direction);    
+    //OpenPBR_DiffuseSpecular eval = openpbr_eval(prepared, light_direction);
+    return SampledSpectrum(1.0f);
 }
 
 Float OpenPBRBxDF::PDF(Vector3f wo, Vector3f wi, TransportMode mode,
@@ -337,10 +456,20 @@ Float OpenPBRBxDF::PDF(Vector3f wo, Vector3f wi, TransportMode mode,
     inputs.fuzz_color = vec3(fuzz_color[0], fuzz_color[1], fuzz_color[2]);
     inputs.fuzz_roughness = fuzz_roughness;
     
-    
+    inputs.thin_film_weight = thin_film_weight;
+    inputs.thin_film_thickness = thin_film_thickness;
+    inputs.thin_film_ior = thin_film_ior;
+
+    inputs.emission_luminance = emission_luminance;
+    inputs.emission_color = vec3(emission_color[0], emission_color[1], emission_color[2]);   
+
+    inputs.geometry_basis = openpbr_make_basis(vec3(geometry_normal[0],geometry_normal[1],geometry_normal[2]), vec3(geometry_tangent[0],geometry_tangent[1],geometry_tangent[2]), 1.f);
+    //inputs.geometry_basis = openpbr_make_identity_basis();
+    inputs.geometry_coat_basis = inputs.geometry_basis;
+
     const vec3 view_direction = vec3(wo[0], wo[1], wo[2]);
     const vec3 light_direction = vec3(wi[0], wi[1], wi[2]);
-    const OpenPBR_PreparedBsdf prepared = openpbr_prepare_bsdf_and_volume(inputs,
+    const OpenPBR_PreparedBsdf prepared = openpbr_prepare(inputs,
                                                                       vec3(1.0f),                     // path throughput (for importance sampling)
                                                                       OpenPBR_BaseRgbWavelengths_nm,  // RGB wavelengths in nanometers
                                                                       OpenPBR_VacuumIor,              // exterior IOR

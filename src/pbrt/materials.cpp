@@ -300,10 +300,24 @@ OpenPBRBxDF OpenPBRMaterial::GetBxDF(TextureEvaluator texEval,
     if (remapRoughness) {
         fuzz_roughness_ = TrowbridgeReitzDistribution::RoughnessToAlpha(fuzz_roughness_);    
     }
+
+    Float thin_film_weight_ = texEval(thin_film_weight, ctx);
+    Float thin_film_thickness_ = texEval(thin_film_thickness, ctx);
+    Float thin_film_ior_ = texEval(thin_film_ior, ctx);
+
+    Float emission_luminance_ = texEval(emission_luminance, ctx);
+    SampledSpectrum emission_color_ = Clamp(texEval(emission_color, ctx, lambda), 0, 1);
+
+    Normal3f geometry_normal_ = Normal3f(0.f, 0.f, 1.f);
+    //Vector3f geometry_tangent_ = ctx.dpdx;
+    Vector3f geometry_tangent_ = Vector3f(1.f, 0.f, 0.f);
     return OpenPBRBxDF(base_weight_, base_color_, base_metalness_, base_diffuse_roughness_, specular_weight_, specular_color_, specular_roughness_, specular_roughness_anisotropy_, specular_ior_,
         transmission_weight_, transmission_color_, transmission_depth_, transmission_scatter_, transmission_scatter_anisotropy_, transmission_dispersion_scale_, transmission_dispersion_abbe_number_,
         coat_weight_, coat_color_, coat_roughness_, coat_roughness_anisotropy_, coat_ior_, coat_darkening_,
-    fuzz_weight_, fuzz_color_, fuzz_roughness_);
+        fuzz_weight_, fuzz_color_, fuzz_roughness_,
+        thin_film_weight_, thin_film_thickness_, thin_film_ior_,
+        emission_luminance_, emission_color_,
+        geometry_normal_, geometry_tangent_);
 }
 
 // Explicit template instantiation
@@ -337,7 +351,7 @@ OpenPBRMaterial *OpenPBRMaterial::Create(
 
     FloatTexture base_metalness = parameters.GetFloatTextureOrNull("base_metalness", alloc);
      if (!base_metalness)
-        base_metalness = parameters.GetFloatTexture("base_metalness", 1.f, alloc);
+        base_metalness = parameters.GetFloatTexture("base_metalness", 0.f, alloc);
 
     FloatTexture base_diffuse_roughness = parameters.GetFloatTextureOrNull("base_diffuse_roughness", alloc);
      if (!base_diffuse_roughness)
@@ -423,6 +437,28 @@ OpenPBRMaterial *OpenPBRMaterial::Create(
      if (!fuzz_roughness)
         fuzz_roughness = parameters.GetFloatTexture("fuzz_roughness", 0.0f, alloc);
 
+    FloatTexture thin_film_weight = parameters.GetFloatTextureOrNull("thin_film_weight", alloc);
+    if (!thin_film_weight)
+        thin_film_weight = parameters.GetFloatTexture("thin_film_weight", 0.f, alloc);
+
+    FloatTexture thin_film_thickness = parameters.GetFloatTextureOrNull("thin_film_thickness", alloc);
+    if (!thin_film_thickness)
+        thin_film_thickness = parameters.GetFloatTexture("thin_film_thickness", 0.5f, alloc);
+
+    FloatTexture thin_film_ior = parameters.GetFloatTextureOrNull("thin_film_ior", alloc);
+    if (!thin_film_ior)
+        thin_film_ior = parameters.GetFloatTexture("thin_film_ior", 1.4f, alloc);
+
+    FloatTexture emission_luminance = parameters.GetFloatTextureOrNull("emission_luminance", alloc);
+    if (!emission_luminance)
+        emission_luminance = parameters.GetFloatTexture("emission_luminance", 0.f, alloc);
+
+    SpectrumTexture emission_color = parameters.GetSpectrumTexture(
+        "emission_color", nullptr, SpectrumType::Albedo, alloc);
+    if (!emission_color)
+        emission_color = alloc.new_object<SpectrumConstantTexture>(
+            alloc.new_object<ConstantSpectrum>(1.0f));
+
     FloatTexture displacement = parameters.GetFloatTextureOrNull("displacement", alloc);
     bool remapRoughness = parameters.GetOneBool("remaproughness", false);
 
@@ -432,6 +468,8 @@ OpenPBRMaterial *OpenPBRMaterial::Create(
         transmission_weight, transmission_color, transmission_depth, transmission_scatter, transmission_scatter_anisotropy, transmission_dispersion_scale, transmission_dispersion_abbe_number,
         coat_weight, coat_color, coat_roughness, coat_roughness_anisotropy, coat_ior, coat_darkening,
         fuzz_weight, fuzz_color, fuzz_roughness,
+        emission_luminance, emission_color,
+        thin_film_weight, thin_film_thickness, thin_film_ior,
         displacement, normalMap, remapRoughness);
 }
 
