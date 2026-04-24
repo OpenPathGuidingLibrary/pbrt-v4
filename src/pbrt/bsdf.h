@@ -55,6 +55,12 @@ class BSDF {
     }
 
     PBRT_CPU_GPU
+    SampledSpectrum e(Vector3f woRender) const {
+        Vector3f wo = RenderToLocal(woRender);
+        return bxdf.e(wo);
+    }
+
+    PBRT_CPU_GPU
     pstd::optional<BSDFSample> Sample_f(
         Vector3f woRender, Float u, Point2f u2,
         TransportMode mode = TransportMode::Radiance,

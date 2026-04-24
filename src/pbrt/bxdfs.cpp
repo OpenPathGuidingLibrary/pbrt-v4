@@ -416,7 +416,11 @@ SampledSpectrum OpenPBRBxDF::e(Vector3f wo) const {
                                                                       OpenPBR_VacuumIor,              // exterior IOR
                                                                       view_direction);    
     //OpenPBR_DiffuseSpecular eval = openpbr_eval(prepared, light_direction);
-    return SampledSpectrum(1.0f);
+    SampledSpectrum Le(0.f);
+    Le[0] = prepared.emission[0];
+    Le[1] = prepared.emission[1];
+    Le[2] = prepared.emission[2];
+    return Le;
 }
 
 Float OpenPBRBxDF::PDF(Vector3f wo, Vector3f wi, TransportMode mode,

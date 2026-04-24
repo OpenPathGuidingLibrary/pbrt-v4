@@ -319,6 +319,9 @@ class OpenPBRBxDF {
     BxDFFlags Flags() const {
         BxDFFlags flags = (specular_ior == 1) ? BxDFFlags::DiffuseReflection
                                      : (BxDFFlags::Reflection | BxDFFlags::DiffuseReflection);
+        if ((emission_color * emission_luminance).Average() > 0.f) {
+            flags |= BxDFFlags::Emission;
+        }
         return flags;
         //return flags |
         //       (mfDistrib.EffectivelySmooth() ? BxDFFlags::Specular : BxDFFlags::Glossy);
