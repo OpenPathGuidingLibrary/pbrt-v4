@@ -243,6 +243,19 @@ class HomogeneousMedium {
         Le_spec.Scale(LeScale);
     }
 
+#if defined(PBRT_RGB_RENDERING)
+    HomogeneousMedium(RGBUnboundedSpectrum sigma_a, RGBUnboundedSpectrum sigma_s, Float sigmaScale, RGBUnboundedSpectrum Le,
+                      Float LeScale, Float g)
+        : sigma_a_spec(sigma_a),
+          sigma_s_spec(sigma_s),
+          Le_spec(Le),
+          phase(g) {
+        sigma_a_spec.Scale(sigmaScale);
+        sigma_s_spec.Scale(sigmaScale);
+        Le_spec.Scale(LeScale);
+    }
+#endif
+
     static HomogeneousMedium *Create(const ParameterDictionary &parameters,
                                      const FileLoc *loc, Allocator alloc);
 

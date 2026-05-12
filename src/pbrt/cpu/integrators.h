@@ -365,13 +365,14 @@ class SimpleVolPathIntegrator : public RayIntegrator {
 class VolPathIntegrator : public RayIntegrator {
   public:
     // VolPathIntegrator Public Methods
-    VolPathIntegrator(int maxDepth, int minRRDepth, Camera camera, Sampler sampler, Primitive aggregate,
+    VolPathIntegrator(int maxDepth, int minRRDepth, const bool useNEE, Camera camera, Sampler sampler, Primitive aggregate,
                       std::vector<Light> lights,
                       const std::string &lightSampleStrategy = "bvh",
                       bool regularize = false)
         : RayIntegrator(camera, sampler, aggregate, lights),
           maxDepth(maxDepth),
           minRRDepth(minRRDepth),
+          useNEE(useNEE),
           lightSampler(LightSampler::Create(lightSampleStrategy, lights, Allocator())),
           regularize(regularize) {}
 
@@ -396,6 +397,7 @@ class VolPathIntegrator : public RayIntegrator {
     int minRRDepth;
     LightSampler lightSampler;
     bool regularize;
+    bool useNEE;
 };
 
 #ifdef PBRT_WITH_PATH_GUIDING

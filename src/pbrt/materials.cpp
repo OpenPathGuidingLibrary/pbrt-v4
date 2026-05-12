@@ -282,6 +282,12 @@ OpenPBRBxDF OpenPBRMaterial::GetBxDF(TextureEvaluator texEval,
     Float transmission_dispersion_scale_ = texEval(transmission_dispersion_scale, ctx);
     Float transmission_dispersion_abbe_number_ = texEval(transmission_dispersion_abbe_number, ctx);
 
+    Float subsurface_weight_ = texEval(subsurface_weight, ctx);
+    SampledSpectrum subsurface_color_ = Clamp(texEval(subsurface_color, ctx, lambda), 0, 1);
+    Float subsurface_radius_ = texEval(subsurface_radius, ctx);
+    SampledSpectrum subsurface_radius_scale_ = Clamp(texEval(subsurface_radius_scale, ctx, lambda), 0, 1);
+    Float subsurface_scatter_anisotropy_ = texEval(subsurface_scatter_anisotropy, ctx);
+
     // Initialize coat component
     Float coat_weight_ = texEval(coat_weight, ctx);
     SampledSpectrum coat_color_ = Clamp(texEval(coat_color, ctx, lambda), 0, 1);
@@ -313,11 +319,12 @@ OpenPBRBxDF OpenPBRMaterial::GetBxDF(TextureEvaluator texEval,
     Vector3f geometry_tangent_ = Vector3f(1.f, 0.f, 0.f);
     return OpenPBRBxDF(base_weight_, base_color_, base_metalness_, base_diffuse_roughness_, specular_weight_, specular_color_, specular_roughness_, specular_roughness_anisotropy_, specular_ior_,
         transmission_weight_, transmission_color_, transmission_depth_, transmission_scatter_, transmission_scatter_anisotropy_, transmission_dispersion_scale_, transmission_dispersion_abbe_number_,
+        subsurface_weight_, subsurface_color_, subsurface_radius_, subsurface_radius_scale_, subsurface_scatter_anisotropy_,
         coat_weight_, coat_color_, coat_roughness_, coat_roughness_anisotropy_, coat_ior_, coat_darkening_,
         fuzz_weight_, fuzz_color_, fuzz_roughness_,
         thin_film_weight_, thin_film_thickness_, thin_film_ior_,
         emission_luminance_, emission_color_,
-        geometry_normal_, geometry_tangent_);
+        geometry_thin_walled, geometry_normal_, geometry_tangent_);
 }
 
 // Explicit template instantiation
@@ -402,6 +409,25 @@ OpenPBRMaterial *OpenPBRMaterial::Create(
      if (!transmission_dispersion_abbe_number)
         transmission_dispersion_abbe_number = parameters.GetFloatTexture("transmission_dispersion_abbe_number", 20.0f, alloc);
 
+    FloatTexture subsurface_weight = parameters.GetFloatTextureOrNull("subsurface_weight", alloc);
+    if (!subsurface_weight)
+        subsurface_weight = parameters.GetFloatTexture("subsurface_weight", 0.f, alloc);
+    SpectrumTexture subsurface_color = parameters.GetSpectrumTexture(
+        "subsurface_color", nullptr, SpectrumType::Albedo, alloc);
+    if (!subsurface_color)
+        subsurface_color = alloc.new_object<SpectrumConstantTexture>(
+            alloc.new_object<ConstantSpectrum>(0.8f));
+    FloatTexture subsurface_radius = parameters.GetFloatTextureOrNull("subsurface_radius", alloc);
+     if (!subsurface_radius)
+        subsurface_radius = parameters.GetFloatTexture("subsurface_radius", 1.0f, alloc);
+    SpectrumTexture subsurface_radius_scale = parameters.GetSpectrumTexture(
+        "subsurface_radius_scale", nullptr, SpectrumType::Albedo, alloc);
+    if (!subsurface_radius_scale)
+        subsurface_radius_scale = alloc.new_object<SpectrumConstantTexture>(
+            alloc.new_object<RGBUnboundedSpectrum>(1.0f, 0.5f, 0.25f));
+    FloatTexture subsurface_scatter_anisotropy = parameters.GetFloatTextureOrNull("subsurface_scatter_anisotropy", alloc);
+    if (!subsurface_scatter_anisotropy)
+        subsurface_scatter_anisotropy = parameters.GetFloatTexture("subsurface_scatter_anisotropy", 0.f, alloc);
 
     FloatTexture coat_weight = parameters.GetFloatTextureOrNull("coat_weight", alloc);
     if (!coat_weight)
@@ -453,6 +479,8 @@ OpenPBRMaterial *OpenPBRMaterial::Create(
     if (!emission_luminance)
         emission_luminance = parameters.GetFloatTexture("emission_luminance", 0.f, alloc);
 
+    bool geometry_thin_walled = parameters.GetOneBool("geometry_thin_walled", false);
+    
     SpectrumTexture emission_color = parameters.GetSpectrumTexture(
         "emission_color", nullptr, SpectrumType::Albedo, alloc);
     if (!emission_color)
@@ -466,10 +494,12 @@ OpenPBRMaterial *OpenPBRMaterial::Create(
         base_weight, base_color, base_metalness, base_diffuse_roughness, 
         specular_weight, specular_color, specular_roughness, specular_roughness_anisotropy, specular_ior,
         transmission_weight, transmission_color, transmission_depth, transmission_scatter, transmission_scatter_anisotropy, transmission_dispersion_scale, transmission_dispersion_abbe_number,
+        subsurface_weight, subsurface_color, subsurface_radius, subsurface_radius_scale, subsurface_scatter_anisotropy,
         coat_weight, coat_color, coat_roughness, coat_roughness_anisotropy, coat_ior, coat_darkening,
         fuzz_weight, fuzz_color, fuzz_roughness,
         emission_luminance, emission_color,
         thin_film_weight, thin_film_thickness, thin_film_ior,
+        geometry_thin_walled,
         displacement, normalMap, remapRoughness);
 }
 

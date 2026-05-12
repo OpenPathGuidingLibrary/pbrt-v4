@@ -8,6 +8,8 @@
 
 #include <pbrt/pbrt.h>
 
+
+#include <pbrt/base/medium.h>
 #include <pbrt/util/pstd.h>
 #include <pbrt/util/spectrum.h>
 #include <pbrt/util/taggedptr.h>
@@ -129,7 +131,7 @@ struct BSDFSample {
     BSDFSample() = default;
     PBRT_CPU_GPU
     BSDFSample(SampledSpectrum f, Vector3f wi, Float pdf, BxDFFlags flags, Float sampledRoughness, 
-                Float eta = 1, bool pdfIsProportional = false)
+                Float eta = 1, bool pdfIsProportional = false, HomogeneousMedium* interiorMedium = nullptr)
         : f(f),
           wi(wi),
           pdf(pdf),
@@ -138,7 +140,8 @@ struct BSDFSample {
           flags(flags),
           sampledRoughness(sampledRoughness),
           eta(eta),
-          pdfIsProportional(pdfIsProportional) {}
+          pdfIsProportional(pdfIsProportional),
+          interiorMedium(interiorMedium) {}
 
     PBRT_CPU_GPU
     bool IsReflection() const { return pbrt::IsReflective(flags); }
@@ -151,6 +154,9 @@ struct BSDFSample {
     PBRT_CPU_GPU
     bool IsSpecular() const { return pbrt::IsSpecular(flags); }
 
+    PBRT_CPU_GPU
+    bool hasInteriorMedium() const { return interiorMedium ? true : false; }
+
     std::string ToString() const;
     SampledSpectrum f;
     Vector3f wi;
@@ -161,6 +167,8 @@ struct BSDFSample {
     Float eta = 1;
     Float sampledRoughness = 1.0f;
     bool pdfIsProportional = false;
+
+    HomogeneousMedium* interiorMedium = nullptr;
 };
 
 class DiffuseBxDF;

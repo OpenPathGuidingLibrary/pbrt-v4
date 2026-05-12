@@ -9,6 +9,7 @@
 #include <pbrt/pbrt.h>
 
 #include <pbrt/base/bssrdf.h>
+#include <pbrt/base/medium.h>
 #include <pbrt/base/texture.h>
 #include <pbrt/util/taggedptr.h>
 
@@ -69,6 +70,10 @@ class Material
     PBRT_CPU_GPU inline FloatTexture GetDisplacement() const;
 
     PBRT_CPU_GPU inline bool HasSubsurfaceScattering() const;
+
+    PBRT_CPU_GPU inline Medium GetInteriorMedium() const;
+
+    PBRT_CPU_GPU inline bool HasInteriorMedium() const;
 };
 
 }  // namespace pbrt

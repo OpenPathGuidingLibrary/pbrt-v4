@@ -691,6 +691,9 @@ class RGBUnboundedSpectrum {
     RGBUnboundedSpectrum() : rsp(0, 0, 0), scale(0) {}
 #else
     PBRT_CPU_GPU
+    RGBUnboundedSpectrum(Float r, Float g, Float b) : rgb(r, g, b) {}
+
+    PBRT_CPU_GPU
     RGBUnboundedSpectrum() : rgb(0, 0, 0) {}
 
     PBRT_CPU_GPU

@@ -989,6 +989,8 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
 
     LightSampleContext prevIntrContext;
 
+    HomogeneousMedium* interiorMedium = nullptr;
+
     while (true) {
         // Sample segment of volumetric scattering path
         PBRT_DBG("%s\n", StringPrintf("Path tracer depth %d, current L = %s, beta = %s\n",
@@ -1066,8 +1068,9 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
 
                             ++totalPhases;
                             
-                            L += SampleLd(intr, nullptr, lambda, sampler, beta, r_u);
-
+                            if(useNEE){
+                                L += SampleLd(intr, nullptr, lambda, sampler, beta, r_u);
+                            }
                             // Sample new direction at real-scattering event
                             Point2f u = sampler.Get2D();
                             pstd::optional<PhaseFunctionSample> ps =
@@ -1135,7 +1138,7 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
         SurfaceInteraction &isect = si->intr;
         if (SampledSpectrum Le = isect.Le(-ray.d, lambda); Le) {
             // Add contribution of emission from intersected surface
-            if (depth == 0 || specularBounce)
+            if (!useNEE || (depth == 0 || specularBounce))
                 L += beta * Le / r_u.Average();
             else {
                 // Add surface light contribution using both PDFs with MIS
@@ -1190,7 +1193,7 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
         }
 
         // Sample illumination from lights to find attenuated path contribution
-        if (IsNonSpecular(bsdf.Flags())) {
+        if (useNEE && IsNonSpecular(bsdf.Flags())) {
             L += SampleLd(isect, &bsdf, lambda, sampler, beta, r_u);
             DCHECK(IsInf(L.y(lambda)) == false);
         }
@@ -1218,10 +1221,23 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
         // Update volumetric integrator path state after surface scattering
         specularBounce = bs->IsSpecular();
         anyNonSpecularBounces |= !bs->IsSpecular();
-        if (bs->IsTransmission())
+        if (bs->IsTransmission()){
             etaScale *= Sqr(bs->eta);
+        }
         ray = isect.SpawnRay(ray, bsdf, bs->wi, bs->flags, bs->eta);
 
+        if(bs->IsTransmission()) {
+            if (interiorMedium) {
+                delete interiorMedium;
+                interiorMedium = nullptr;
+                ray.medium = nullptr;
+            }
+            if(bs->interiorMedium) {
+                interiorMedium = bs->interiorMedium;
+                ray.medium = interiorMedium;
+            }
+        }
+/*
         // Account for attenuated subsurface scattering, if applicable
         BSSRDF bssrdf = isect.GetBSSRDF(ray, lambda, camera, scratchBuffer);
         if (bssrdf && bs->IsTransmission()) {
@@ -1292,7 +1308,7 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
             specularBounce = bs->IsSpecular();
             ray = RayDifferential(pi.SpawnRay(bs->wi));
         }
-
+*/
         // Possibly terminate volumetric path with Russian roulette
         if (!beta)
             break;
@@ -1306,6 +1322,9 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
                 break;
             beta /= 1 - q;
         }
+    }
+    if(interiorMedium) {
+        delete interiorMedium;
     }
     return L;
 }
@@ -1442,7 +1461,8 @@ std::unique_ptr<VolPathIntegrator> VolPathIntegrator::Create(
     int minRRDepth = parameters.GetOneInt("minrrdepth", 1);
     std::string lightStrategy = parameters.GetOneString("lightsampler", "bvh");
     bool regularize = parameters.GetOneBool("regularize", false);
-    return std::make_unique<VolPathIntegrator>(maxDepth, minRRDepth, camera, sampler, aggregate,
+    bool useNEE = parameters.GetOneBool("usenee", true);
+    return std::make_unique<VolPathIntegrator>(maxDepth, minRRDepth, useNEE, camera, sampler, aggregate,
                                                lights, lightStrategy, regularize);
 }
 

@@ -265,6 +265,11 @@ class OpenPBRBxDF {
     Float transmission_scatter_anisotropy,
     Float transmission_dispersion_scale,
     Float transmission_dispersion_abbe_number,
+    Float subsurface_weight,
+    SampledSpectrum subsurface_color,
+    Float subsurface_radius,
+    SampledSpectrum subsurface_radius_scale,
+    Float subsurface_scatter_anisotropy,
     Float coat_weight,
     SampledSpectrum coat_color,
     Float coat_roughness,
@@ -279,6 +284,7 @@ class OpenPBRBxDF {
     Float thin_film_ior,
     Float emission_luminance,
     SampledSpectrum emission_color,
+    bool geometry_thin_walled,
     Normal3f geometry_normal,
     Vector3f geometry_tangent)
         : base_weight(base_weight),
@@ -297,6 +303,11 @@ class OpenPBRBxDF {
         transmission_scatter_anisotropy(transmission_scatter_anisotropy),
         transmission_dispersion_scale(transmission_dispersion_scale),
         transmission_dispersion_abbe_number(transmission_dispersion_abbe_number),
+        subsurface_weight(subsurface_weight),
+        subsurface_color(subsurface_color),
+        subsurface_radius(subsurface_radius),
+        subsurface_radius_scale(subsurface_radius_scale),
+        subsurface_scatter_anisotropy(subsurface_scatter_anisotropy),
         coat_weight(coat_weight),
         coat_color(coat_color),
         coat_roughness(coat_roughness),
@@ -311,6 +322,7 @@ class OpenPBRBxDF {
         thin_film_ior(thin_film_ior),
         emission_luminance(emission_luminance),
         emission_color(emission_color),
+        geometry_thin_walled(geometry_thin_walled),
         geometry_normal(geometry_normal),
         geometry_tangent(geometry_tangent)
          {}
@@ -375,6 +387,12 @@ class OpenPBRBxDF {
     Float transmission_dispersion_scale;
     Float transmission_dispersion_abbe_number;
 
+    Float subsurface_weight;
+    SampledSpectrum subsurface_color;
+    Float subsurface_radius;
+    SampledSpectrum subsurface_radius_scale;
+    Float subsurface_scatter_anisotropy;
+
     Float coat_weight;
     SampledSpectrum coat_color;
     Float coat_roughness;
@@ -393,6 +411,7 @@ class OpenPBRBxDF {
     Float emission_luminance;
     SampledSpectrum emission_color;
 
+    bool geometry_thin_walled;
     Normal3f geometry_normal;
     Vector3f geometry_tangent;
 };

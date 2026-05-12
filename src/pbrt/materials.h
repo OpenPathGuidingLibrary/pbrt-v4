@@ -171,6 +171,10 @@ class DielectricMaterial {
                                       Image *normalMap, const FileLoc *loc,
                                       Allocator alloc);
 
+    PBRT_CPU_GPU bool HasInteriorMedium() const {return false;}
+ 
+    PBRT_CPU_GPU Medium GetInteriorMedium() const {return {};}
+
     std::string ToString() const;
 
     template <typename TextureEvaluator>
@@ -260,6 +264,10 @@ class ThinDielectricMaterial {
 
     PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
 
+    PBRT_CPU_GPU bool HasInteriorMedium() const {return false;}
+ 
+    PBRT_CPU_GPU Medium GetInteriorMedium() const {return {};}
+
     std::string ToString() const;
 
   private:
@@ -328,6 +336,10 @@ class MixMaterial {
     }
 
     PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
+
+    PBRT_CPU_GPU bool HasInteriorMedium() const {return false;}
+ 
+    PBRT_CPU_GPU Medium GetInteriorMedium() const {return {};}
 
     std::string ToString() const;
 
@@ -418,6 +430,10 @@ class HairMaterial {
 
     PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
 
+    PBRT_CPU_GPU bool HasInteriorMedium() const {return false;}
+ 
+    PBRT_CPU_GPU Medium GetInteriorMedium() const {return {};}
+
     std::string ToString() const;
 
   private:
@@ -450,6 +466,10 @@ class DiffuseMaterial {
                                 SampledWavelengths &lambda, void *) const {}
 
     PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
+
+    PBRT_CPU_GPU bool HasInteriorMedium() const {return false;}
+ 
+    PBRT_CPU_GPU Medium GetInteriorMedium() const {return {};}
 
     std::string ToString() const;
 
@@ -540,6 +560,10 @@ class ConductorMaterial {
 
     PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
 
+    PBRT_CPU_GPU bool HasInteriorMedium() const {return false;}
+ 
+    PBRT_CPU_GPU Medium GetInteriorMedium() const {return {};}
+
     std::string ToString() const;
 
   private:
@@ -569,12 +593,18 @@ class OpenPBRMaterial {
                           FloatTexture transmission_scatter_anisotropy,
                           FloatTexture transmission_dispersion_scale,
                           FloatTexture transmission_dispersion_abbe_number,
+                          FloatTexture subsurface_weight,
+                          SpectrumTexture subsurface_color,
+                          FloatTexture subsurface_radius,
+                          SpectrumTexture subsurface_radius_scale,
+                          FloatTexture subsurface_scatter_anisotropy,
                           FloatTexture coat_weight, SpectrumTexture coat_color,
                           FloatTexture coat_roughness, FloatTexture coat_roughness_anisotropy,
                           FloatTexture coat_ior, FloatTexture coat_darkening,
                           FloatTexture fuzz_weight, SpectrumTexture fuzz_color, FloatTexture fuzz_roughness,
                           FloatTexture emission_luminance, SpectrumTexture emission_color,
                           FloatTexture thin_film_weight, FloatTexture thin_film_thickness, FloatTexture thin_film_ior,
+                          bool geometry_thin_walled,
                           FloatTexture displacement, Image *normalMap,
                           bool remapRoughness)
         : displacement(displacement),
@@ -595,6 +625,11 @@ class OpenPBRMaterial {
           transmission_scatter_anisotropy(transmission_scatter_anisotropy),
           transmission_dispersion_scale(transmission_dispersion_scale),
           transmission_dispersion_abbe_number(transmission_dispersion_abbe_number),
+          subsurface_weight(subsurface_weight),
+          subsurface_color(subsurface_color),
+          subsurface_radius(subsurface_radius),
+          subsurface_radius_scale(subsurface_radius_scale),
+          subsurface_scatter_anisotropy(subsurface_scatter_anisotropy),
           coat_weight(coat_weight),
           coat_color(coat_color),
           coat_roughness(coat_roughness),
@@ -609,6 +644,7 @@ class OpenPBRMaterial {
           thin_film_weight(thin_film_weight),
           thin_film_thickness(thin_film_thickness),
           thin_film_ior(thin_film_ior),
+          geometry_thin_walled(geometry_thin_walled),
           remapRoughness(remapRoughness) {}
 
     static const char *Name() { return "OpenPBRMaterial"; }
@@ -617,9 +653,10 @@ class OpenPBRMaterial {
     PBRT_CPU_GPU bool CanEvaluateTextures(TextureEvaluator texEval) const {
         return texEval.CanEvaluate({base_weight, base_metalness, base_diffuse_roughness, 
                                     specular_weight, specular_roughness, specular_roughness_anisotropy, specular_ior,
+                                    subsurface_weight, subsurface_radius, subsurface_scatter_anisotropy,
                                     coat_weight, coat_roughness, coat_roughness_anisotropy, coat_ior, coat_darkening,
                                     fuzz_weight, fuzz_roughness, thin_film_weight,thin_film_thickness, thin_film_ior},
-                                   {base_color, specular_color, coat_color, fuzz_color});
+                                   {base_color, specular_color, subsurface_color, subsurface_radius_scale, coat_color, fuzz_color});
     }
 
     template <typename TextureEvaluator>
@@ -641,6 +678,10 @@ class OpenPBRMaterial {
                                 SampledWavelengths &lambda) const {}
 
     PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
+
+    PBRT_CPU_GPU bool HasInteriorMedium() const {return false;}
+ 
+    PBRT_CPU_GPU Medium GetInteriorMedium() const {return {};}
 
     std::string ToString() const;
 
@@ -669,6 +710,12 @@ class OpenPBRMaterial {
     FloatTexture transmission_dispersion_scale;
     FloatTexture transmission_dispersion_abbe_number;
 
+    FloatTexture subsurface_weight;
+    SpectrumTexture subsurface_color;
+    FloatTexture subsurface_radius;
+    SpectrumTexture subsurface_radius_scale;
+    FloatTexture subsurface_scatter_anisotropy;
+
     FloatTexture coat_weight;
     SpectrumTexture coat_color;
     FloatTexture coat_roughness;
@@ -686,6 +733,8 @@ class OpenPBRMaterial {
 
     FloatTexture emission_luminance;
     SpectrumTexture emission_color;
+
+    bool geometry_thin_walled;
 };
 
 // CookTorranceMaterial Definition
@@ -734,6 +783,10 @@ class CookTorranceMaterial {
                                 SampledWavelengths &lambda) const {}
 
     PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
+
+    PBRT_CPU_GPU bool HasInteriorMedium() const {return false;}
+ 
+    PBRT_CPU_GPU Medium GetInteriorMedium() const {return {};}
 
     std::string ToString() const;
 
@@ -798,6 +851,10 @@ class CoatedDiffuseMaterial {
                                 SampledWavelengths &lambda) const {}
 
     PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
+
+    PBRT_CPU_GPU bool HasInteriorMedium() const {return false;}
+ 
+    PBRT_CPU_GPU Medium GetInteriorMedium() const {return {};}
 
     std::string ToString() const;
 
@@ -872,6 +929,10 @@ class CoatedConductorMaterial {
                                 SampledWavelengths &lambda, void *) const {}
 
     PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
+
+    PBRT_CPU_GPU bool HasInteriorMedium() const {return false;}
+ 
+    PBRT_CPU_GPU Medium GetInteriorMedium() const {return {};}
 
     std::string ToString() const;
 
@@ -973,6 +1034,10 @@ class SubsurfaceMaterial {
                                       Image *normalMap, const FileLoc *loc,
                                       Allocator alloc);
 
+    PBRT_CPU_GPU bool HasInteriorMedium() const {return false;}
+ 
+    PBRT_CPU_GPU Medium GetInteriorMedium() const {return {};}
+    
     std::string ToString() const;
 
   private:
@@ -1032,6 +1097,10 @@ class DiffuseTransmissionMaterial {
 
     PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
 
+    PBRT_CPU_GPU bool HasInteriorMedium() const {return false;}
+ 
+    PBRT_CPU_GPU Medium GetInteriorMedium() const {return {};}
+
     std::string ToString() const;
 
   private:
@@ -1078,6 +1147,10 @@ class MeasuredMaterial {
                                 SampledWavelengths &lambda, void *) const {}
 
     PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
+
+    PBRT_CPU_GPU bool HasInteriorMedium() const {return false;}
+ 
+    PBRT_CPU_GPU Medium GetInteriorMedium() const {return {};}
 
     std::string ToString() const;
 
@@ -1132,6 +1205,16 @@ inline BSSRDF Material::GetBSSRDF(TextureEvaluator texEval, MaterialEvalContext 
         }
     };
     return DispatchCPU(get);
+}
+
+PBRT_CPU_GPU inline Medium Material::GetInteriorMedium() const {
+    auto has = [&](auto ptr) { return ptr->GetInteriorMedium(); };
+    return Dispatch(has);
+}
+
+PBRT_CPU_GPU inline bool Material::HasInteriorMedium() const {
+    auto has = [&](auto ptr) { return ptr->HasInteriorMedium(); };
+    return Dispatch(has);
 }
 
 PBRT_CPU_GPU inline bool Material::HasSubsurfaceScattering() const {

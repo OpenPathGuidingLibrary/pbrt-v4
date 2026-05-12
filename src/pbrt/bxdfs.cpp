@@ -213,8 +213,14 @@ inline void printOpenPBRParameterInputs(OpenPBR_ResolvedInputs inputs) {
     std::cout << "transmission_depth: " <<  inputs.transmission_depth << std::endl;
     std::cout << "transmission_scatter: " <<  vec3ToString(inputs.transmission_scatter) << std::endl;
     std::cout << "transmission_scatter_anisotropy: " <<  inputs.transmission_scatter_anisotropy << std::endl;
-    std::cout << "transmission_dispersion_abbe_number: " <<  inputs.transmission_dispersion_scale << std::endl;
-    std::cout << "specular_ior: " <<  inputs.transmission_dispersion_abbe_number << std::endl;
+    std::cout << "transmission_dispersion_scale: " <<  inputs.transmission_dispersion_scale << std::endl;
+    std::cout << "transmission_dispersion_abbe_number: " <<  inputs.transmission_dispersion_abbe_number << std::endl;
+
+    std::cout << "subsurface_weight: " <<  inputs.subsurface_weight<< std::endl;
+    std::cout << "subsurface_color: " <<  vec3ToString(inputs.subsurface_color) << std::endl;
+    std::cout << "subsurface_radius: " <<  inputs.subsurface_radius << std::endl;
+    std::cout << "subsurface_radius_scale: " <<  vec3ToString(inputs.subsurface_radius_scale) << std::endl;
+    std::cout << "subsurface_scatter_anisotropy: " <<  inputs.subsurface_scatter_anisotropy << std::endl;
 
     std::cout << "coat_weight: " <<  inputs.coat_weight << std::endl;
     std::cout << "coat_color: " <<  vec3ToString(inputs.coat_color) << std::endl;
@@ -257,6 +263,12 @@ pstd::optional<BSDFSample> OpenPBRBxDF::Sample_f(
     inputs.transmission_dispersion_scale = transmission_dispersion_scale;
     inputs.transmission_dispersion_abbe_number = transmission_dispersion_abbe_number;
 
+    inputs.subsurface_weight =  subsurface_weight;
+    inputs.subsurface_color =  vec3(subsurface_color[0], subsurface_color[1], subsurface_color[2]);
+    inputs.subsurface_radius =  subsurface_radius;
+    inputs.subsurface_radius_scale =  vec3(subsurface_radius_scale[0], subsurface_radius_scale[1], subsurface_radius_scale[2]);
+    inputs.subsurface_scatter_anisotropy =  subsurface_scatter_anisotropy;
+
     inputs.coat_weight = coat_weight;
     inputs.coat_color = vec3(coat_color[0], coat_color[1], coat_color[2]);
     inputs.coat_roughness = coat_roughness;
@@ -275,6 +287,7 @@ pstd::optional<BSDFSample> OpenPBRBxDF::Sample_f(
     inputs.emission_luminance = emission_luminance;
     inputs.emission_color = vec3(emission_color[0], emission_color[1], emission_color[2]);
     
+    inputs.geometry_thin_walled = geometry_thin_walled;
     inputs.geometry_basis = openpbr_make_basis(vec3(geometry_normal[0],geometry_normal[1],geometry_normal[2]), vec3(geometry_tangent[0],geometry_tangent[1],geometry_tangent[2]), 1.f);
     //inputs.geometry_basis = openpbr_make_identity_basis();
     inputs.geometry_coat_basis = inputs.geometry_basis;
@@ -294,13 +307,38 @@ pstd::optional<BSDFSample> OpenPBRBxDF::Sample_f(
     openpbr_sample(prepared, sample, light_direction, weight, pdf, lobe_type);
     Vector3f wi = Vector3f(light_direction.x,light_direction.y,light_direction.z);
     Float cosineTheta = std::abs(wi[2]); 
-    if (pdf > 0.0f) {
+    HomogeneousMedium* interiorMedium = nullptr;
+    if (pdf > 0.0f && cosineTheta > 1e-6f) {
         const vec3 weight_sum = openpbr_get_sum_of_diffuse_specular(weight);
         SampledSpectrum f;
         f[0] = weight_sum.x;
         f[1] = weight_sum.y;
         f[2] = weight_sum.z;
-        return BSDFSample((f*pdf) / cosineTheta, wi, pdf, BxDFFlags::GlossyReflection | BxDFFlags::DiffuseReflection, 0.5f);
+        BxDFFlags flags = BxDFFlags::Unset;
+        flags = (lobe_type & OpenPBR_BsdfLobeTypeReflection) ? flags | BxDFFlags::Reflection : flags;
+        flags = (lobe_type & OpenPBR_BsdfLobeTypeTransmission) ? flags | BxDFFlags::Transmission : flags;
+        flags = (lobe_type & OpenPBR_BsdfLobeTypeDiffuse) ? flags | BxDFFlags::Diffuse : flags;
+        flags = (lobe_type & OpenPBR_BsdfLobeTypeGlossy) ? flags | BxDFFlags::Glossy : flags;
+        flags = (lobe_type & OpenPBR_BsdfLobeTypeSpecular) ? flags | BxDFFlags::Specular : flags;
+        if(lobe_type & OpenPBR_BsdfLobeTypeTransmission){
+            if (wo[2] > 0.f && ((transmission_depth > 0.f && transmission_weight > 0.f) || subsurface_weight > 0.f)){
+                vec3 sigma_s_ = prepared.volume.extinction_coefficient * prepared.volume.albedo;
+                vec3 sigma_a_ = prepared.volume.extinction_coefficient - sigma_s_;
+                RGBUnboundedSpectrum sigma_a(sigma_a_[0], sigma_a_[1], sigma_a_[2]);
+                RGBUnboundedSpectrum sigma_s(sigma_s_[0], sigma_s_[1], sigma_s_[2]);
+                RGBUnboundedSpectrum sigma_e(0.f, 0.f, 0.f);
+                float g = prepared.volume.anisotropy;
+                //sstd::cout << std::endl << "out-inside" << std::endl;
+                //std::cout << std::endl << "extinction_coefficient = " << vec3ToString(prepared.volume.extinction_coefficient) << "\t albedo = " << vec3ToString(prepared.volume.albedo) << std::endl;
+                //std::cout << std::endl << "sigma_a = " << sigma_a << "\t sigma_s = " << sigma_s << "\t sigma_e = " << sigma_e << std::endl;
+                interiorMedium = new HomogeneousMedium(sigma_a, sigma_s, 1.f, sigma_e, 0.f, g);
+            } else {
+                //std::cout << std::endl << "inside-out" << std::endl;
+            }
+            //std::cout << "transmission: wi.z = " << wi[2] << "\t wo.z = " << wo[2] << std::endl;
+            //std::cout << "volume: anisotropy = " << prepared.volume.anisotropy << "\t albedo = " << vec3ToString(prepared.volume.albedo) << "\t extinction_coefficient = " << vec3ToString(prepared.volume.extinction_coefficient) << std::endl;
+        }
+        return BSDFSample((f*pdf) / cosineTheta, wi, pdf, flags, 0.5f, 1.0f, false, interiorMedium);
     }
     return {};
 }
@@ -327,6 +365,12 @@ SampledSpectrum OpenPBRBxDF::f(Vector3f wo, Vector3f wi, TransportMode mode) con
     inputs.transmission_dispersion_scale = transmission_dispersion_scale;
     inputs.transmission_dispersion_abbe_number = transmission_dispersion_abbe_number;
 
+    inputs.subsurface_weight =  subsurface_weight;
+    inputs.subsurface_color =  vec3(subsurface_color[0], subsurface_color[1], subsurface_color[2]);
+    inputs.subsurface_radius =  subsurface_radius;
+    inputs.subsurface_radius_scale =  vec3(subsurface_radius_scale[0], subsurface_radius_scale[1], subsurface_radius_scale[2]);
+    inputs.subsurface_scatter_anisotropy =  subsurface_scatter_anisotropy;
+
     inputs.coat_weight = coat_weight;
     inputs.coat_color = vec3(coat_color[0], coat_color[1], coat_color[2]);
     inputs.coat_roughness = coat_roughness;
@@ -345,6 +389,7 @@ SampledSpectrum OpenPBRBxDF::f(Vector3f wo, Vector3f wi, TransportMode mode) con
     inputs.emission_luminance = emission_luminance;
     inputs.emission_color = vec3(emission_color[0], emission_color[1], emission_color[2]);    
 
+    inputs.geometry_thin_walled = geometry_thin_walled;
     inputs.geometry_basis = openpbr_make_basis(vec3(geometry_normal[0],geometry_normal[1],geometry_normal[2]), vec3(geometry_tangent[0],geometry_tangent[1],geometry_tangent[2]), 1.f);
     //inputs.geometry_basis = openpbr_make_identity_basis();
     inputs.geometry_coat_basis = inputs.geometry_basis;
@@ -387,6 +432,12 @@ SampledSpectrum OpenPBRBxDF::e(Vector3f wo) const {
     inputs.transmission_dispersion_scale = transmission_dispersion_scale;
     inputs.transmission_dispersion_abbe_number = transmission_dispersion_abbe_number;
 
+    inputs.subsurface_weight =  subsurface_weight;
+    inputs.subsurface_color =  vec3(subsurface_color[0], subsurface_color[1], subsurface_color[2]);
+    inputs.subsurface_radius =  subsurface_radius;
+    inputs.subsurface_radius_scale =  vec3(subsurface_radius_scale[0], subsurface_radius_scale[1], subsurface_radius_scale[2]);
+    inputs.subsurface_scatter_anisotropy =  subsurface_scatter_anisotropy;
+
     inputs.coat_weight = coat_weight;
     inputs.coat_color = vec3(coat_color[0], coat_color[1], coat_color[2]);
     inputs.coat_roughness = coat_roughness;
@@ -405,6 +456,7 @@ SampledSpectrum OpenPBRBxDF::e(Vector3f wo) const {
     inputs.emission_luminance = emission_luminance;
     inputs.emission_color = vec3(emission_color[0], emission_color[1], emission_color[2]);    
 
+    inputs.geometry_thin_walled = geometry_thin_walled;
     inputs.geometry_basis = openpbr_make_basis(vec3(geometry_normal[0],geometry_normal[1],geometry_normal[2]), vec3(geometry_tangent[0],geometry_tangent[1],geometry_tangent[2]), 1.f);
     //inputs.geometry_basis = openpbr_make_identity_basis();
     inputs.geometry_coat_basis = inputs.geometry_basis;
@@ -449,6 +501,12 @@ Float OpenPBRBxDF::PDF(Vector3f wo, Vector3f wi, TransportMode mode,
     inputs.transmission_dispersion_scale = transmission_dispersion_scale;
     inputs.transmission_dispersion_abbe_number = transmission_dispersion_abbe_number;
 
+    inputs.subsurface_weight =  subsurface_weight;
+    inputs.subsurface_color =  vec3(subsurface_color[0], subsurface_color[1], subsurface_color[2]);
+    inputs.subsurface_radius =  subsurface_radius;
+    inputs.subsurface_radius_scale =  vec3(subsurface_radius_scale[0], subsurface_radius_scale[1], subsurface_radius_scale[2]);
+    inputs.subsurface_scatter_anisotropy =  subsurface_scatter_anisotropy;
+
     inputs.coat_weight = coat_weight;
     inputs.coat_color = vec3(coat_color[0], coat_color[1], coat_color[2]);
     inputs.coat_roughness = coat_roughness;
@@ -467,6 +525,7 @@ Float OpenPBRBxDF::PDF(Vector3f wo, Vector3f wi, TransportMode mode,
     inputs.emission_luminance = emission_luminance;
     inputs.emission_color = vec3(emission_color[0], emission_color[1], emission_color[2]);   
 
+    inputs.geometry_thin_walled = geometry_thin_walled;
     inputs.geometry_basis = openpbr_make_basis(vec3(geometry_normal[0],geometry_normal[1],geometry_normal[2]), vec3(geometry_tangent[0],geometry_tangent[1],geometry_tangent[2]), 1.f);
     //inputs.geometry_basis = openpbr_make_identity_basis();
     inputs.geometry_coat_basis = inputs.geometry_basis;
