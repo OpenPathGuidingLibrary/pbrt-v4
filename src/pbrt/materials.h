@@ -604,6 +604,7 @@ class OpenPBRMaterial {
                           FloatTexture fuzz_weight, SpectrumTexture fuzz_color, FloatTexture fuzz_roughness,
                           FloatTexture emission_luminance, SpectrumTexture emission_color,
                           FloatTexture thin_film_weight, FloatTexture thin_film_thickness, FloatTexture thin_film_ior,
+                          FloatTexture geometry_opacity,
                           bool geometry_thin_walled,
                           FloatTexture displacement, Image *normalMap,
                           bool remapRoughness)
@@ -644,6 +645,7 @@ class OpenPBRMaterial {
           thin_film_weight(thin_film_weight),
           thin_film_thickness(thin_film_thickness),
           thin_film_ior(thin_film_ior),
+          geometry_opacity(geometry_opacity),
           geometry_thin_walled(geometry_thin_walled),
           remapRoughness(remapRoughness) {}
 
@@ -734,6 +736,7 @@ class OpenPBRMaterial {
     FloatTexture emission_luminance;
     SpectrumTexture emission_color;
 
+    FloatTexture geometry_opacity;
     bool geometry_thin_walled;
 };
 

@@ -314,6 +314,8 @@ OpenPBRBxDF OpenPBRMaterial::GetBxDF(TextureEvaluator texEval,
     Float emission_luminance_ = texEval(emission_luminance, ctx);
     SampledSpectrum emission_color_ = Clamp(texEval(emission_color, ctx, lambda), 0, 1);
 
+    Float geometry_opacity_ = Clamp(texEval(geometry_opacity, ctx), 0, 1);
+
     Normal3f geometry_normal_ = Normal3f(0.f, 0.f, 1.f);
     //Vector3f geometry_tangent_ = ctx.dpdx;
     Vector3f geometry_tangent_ = Vector3f(1.f, 0.f, 0.f);
@@ -324,7 +326,7 @@ OpenPBRBxDF OpenPBRMaterial::GetBxDF(TextureEvaluator texEval,
         fuzz_weight_, fuzz_color_, fuzz_roughness_,
         thin_film_weight_, thin_film_thickness_, thin_film_ior_,
         emission_luminance_, emission_color_,
-        geometry_thin_walled, geometry_normal_, geometry_tangent_);
+        geometry_opacity_, geometry_thin_walled, geometry_normal_, geometry_tangent_);
 }
 
 // Explicit template instantiation
@@ -479,6 +481,10 @@ OpenPBRMaterial *OpenPBRMaterial::Create(
     if (!emission_luminance)
         emission_luminance = parameters.GetFloatTexture("emission_luminance", 0.f, alloc);
 
+    FloatTexture geometry_opacity = parameters.GetFloatTextureOrNull("geometry_opacity", alloc);
+    if (!geometry_opacity)
+        geometry_opacity = parameters.GetFloatTexture("geometry_opacity", 1.f, alloc);
+
     bool geometry_thin_walled = parameters.GetOneBool("geometry_thin_walled", false);
     
     SpectrumTexture emission_color = parameters.GetSpectrumTexture(
@@ -499,7 +505,7 @@ OpenPBRMaterial *OpenPBRMaterial::Create(
         fuzz_weight, fuzz_color, fuzz_roughness,
         emission_luminance, emission_color,
         thin_film_weight, thin_film_thickness, thin_film_ior,
-        geometry_thin_walled,
+        geometry_opacity, geometry_thin_walled,
         displacement, normalMap, remapRoughness);
 }
 

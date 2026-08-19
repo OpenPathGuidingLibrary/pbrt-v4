@@ -284,6 +284,7 @@ class OpenPBRBxDF {
     Float thin_film_ior,
     Float emission_luminance,
     SampledSpectrum emission_color,
+    Float geometry_opacity,
     bool geometry_thin_walled,
     Normal3f geometry_normal,
     Vector3f geometry_tangent)
@@ -322,6 +323,7 @@ class OpenPBRBxDF {
         thin_film_ior(thin_film_ior),
         emission_luminance(emission_luminance),
         emission_color(emission_color),
+        geometry_opacity(geometry_opacity),
         geometry_thin_walled(geometry_thin_walled),
         geometry_normal(geometry_normal),
         geometry_tangent(geometry_tangent)
@@ -411,6 +413,7 @@ class OpenPBRBxDF {
     Float emission_luminance;
     SampledSpectrum emission_color;
 
+    Float geometry_opacity;
     bool geometry_thin_walled;
     Normal3f geometry_normal;
     Vector3f geometry_tangent;
