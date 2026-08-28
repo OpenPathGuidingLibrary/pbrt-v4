@@ -285,7 +285,7 @@ OpenPBRBxDF OpenPBRMaterial::GetBxDF(TextureEvaluator texEval,
     Float subsurface_weight_ = texEval(subsurface_weight, ctx);
     SampledSpectrum subsurface_color_ = Clamp(texEval(subsurface_color, ctx, lambda), 0, 1);
     Float subsurface_radius_ = texEval(subsurface_radius, ctx);
-    SampledSpectrum subsurface_radius_scale_ = Clamp(texEval(subsurface_radius_scale, ctx, lambda), 0, 1);
+    SampledSpectrum subsurface_radius_scale_ = texEval(subsurface_radius_scale, ctx, lambda);
     Float subsurface_scatter_anisotropy_ = texEval(subsurface_scatter_anisotropy, ctx);
 
     // Initialize coat component
@@ -423,7 +423,7 @@ OpenPBRMaterial *OpenPBRMaterial::Create(
      if (!subsurface_radius)
         subsurface_radius = parameters.GetFloatTexture("subsurface_radius", 1.0f, alloc);
     SpectrumTexture subsurface_radius_scale = parameters.GetSpectrumTexture(
-        "subsurface_radius_scale", nullptr, SpectrumType::Albedo, alloc);
+        "subsurface_radius_scale", nullptr, SpectrumType::Unbounded, alloc);
     if (!subsurface_radius_scale)
         subsurface_radius_scale = alloc.new_object<SpectrumConstantTexture>(
             alloc.new_object<RGBUnboundedSpectrum>(1.0f, 0.5f, 0.25f));
