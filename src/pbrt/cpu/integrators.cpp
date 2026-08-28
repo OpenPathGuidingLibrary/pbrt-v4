@@ -1157,6 +1157,13 @@ SampledSpectrum VolPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sampl
             continue;
         }
 
+        if(bsdf.Flags() & BxDFFlags::Emission) {
+            SampledSpectrum Le = bsdf.e(-ray.d);
+            if(Le) {
+                L += beta * Le;
+            }
+        }
+        
         // Initialize _visibleSurf_ at first intersection
         if (depth == 0 && visibleSurf) {
             // Estimate BSDF's albedo
