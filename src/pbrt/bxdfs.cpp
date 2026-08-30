@@ -289,8 +289,7 @@ pstd::optional<BSDFSample> OpenPBRBxDF::Sample_f(
     
     inputs.geometry_opacity = geometry_opacity;
     inputs.geometry_thin_walled = geometry_thin_walled;
-    inputs.geometry_basis = openpbr_make_basis(vec3(geometry_normal[0],geometry_normal[1],geometry_normal[2]), vec3(geometry_tangent[0],geometry_tangent[1],geometry_tangent[2]), 1.f);
-    //inputs.geometry_basis = openpbr_make_identity_basis();
+    inputs.geometry_basis = openpbr_make_identity_basis();
     inputs.geometry_coat_basis = inputs.geometry_basis;
     //printOpenPBRParameterInputs(inputs);
 
@@ -392,8 +391,7 @@ SampledSpectrum OpenPBRBxDF::f(Vector3f wo, Vector3f wi, TransportMode mode) con
 
     inputs.geometry_opacity = geometry_opacity;
     inputs.geometry_thin_walled = geometry_thin_walled;
-    inputs.geometry_basis = openpbr_make_basis(vec3(geometry_normal[0],geometry_normal[1],geometry_normal[2]), vec3(geometry_tangent[0],geometry_tangent[1],geometry_tangent[2]), 1.f);
-    //inputs.geometry_basis = openpbr_make_identity_basis();
+    inputs.geometry_basis = openpbr_make_identity_basis();
     inputs.geometry_coat_basis = inputs.geometry_basis;
 
     const vec3 view_direction = vec3(wo[0], wo[1], wo[2]);
@@ -460,8 +458,7 @@ SampledSpectrum OpenPBRBxDF::e(Vector3f wo) const {
 
     inputs.geometry_opacity = geometry_opacity;
     inputs.geometry_thin_walled = geometry_thin_walled;
-    inputs.geometry_basis = openpbr_make_basis(vec3(geometry_normal[0],geometry_normal[1],geometry_normal[2]), vec3(geometry_tangent[0],geometry_tangent[1],geometry_tangent[2]), 1.f);
-    //inputs.geometry_basis = openpbr_make_identity_basis();
+    inputs.geometry_basis = openpbr_make_identity_basis();
     inputs.geometry_coat_basis = inputs.geometry_basis;
 
     const vec3 view_direction = vec3(wo[0], wo[1], wo[2]);
@@ -530,8 +527,7 @@ Float OpenPBRBxDF::PDF(Vector3f wo, Vector3f wi, TransportMode mode,
 
     inputs.geometry_opacity = geometry_opacity;
     inputs.geometry_thin_walled = geometry_thin_walled;
-    inputs.geometry_basis = openpbr_make_basis(vec3(geometry_normal[0],geometry_normal[1],geometry_normal[2]), vec3(geometry_tangent[0],geometry_tangent[1],geometry_tangent[2]), 1.f);
-    //inputs.geometry_basis = openpbr_make_identity_basis();
+    inputs.geometry_basis = openpbr_make_identity_basis();
     inputs.geometry_coat_basis = inputs.geometry_basis;
 
     const vec3 view_direction = vec3(wo[0], wo[1], wo[2]);
