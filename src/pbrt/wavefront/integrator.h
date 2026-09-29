@@ -24,6 +24,7 @@
 #include <pbrt/wavefront/workqueue.h>
 
 #if defined(PBRT_WITH_PATH_GUIDING)
+    #include <pbrt/wavefront/guidingoptions.h>
     #include <openpgl/cpp/OpenPGL.h>
 #endif // PBRT_WITH_PATH_GUIDING
 

@@ -41,7 +41,9 @@
 #endif  // PBRT_BUILD_GPU_RENDERER
 
 namespace pbrt {
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+PBRTGuidingOptions *GuidingOptions;
+#endif
 STAT_MEMORY_COUNTER("Memory/Wavefront integrator pixel state", pathIntegratorBytes);
 
 static void updateMaterialNeeds(
@@ -84,6 +86,9 @@ WavefrontPathIntegrator::WavefrontPathIntegrator(
         [memoryResource]() { return Allocator(memoryResource); });
 
     RendererOptions = new PBRTRendererOptions();
+#if defined(PBRT_WITH_PATH_GUIDING)
+    GuidingOptions = new PBRTGuidingOptions();
+#endif
     Allocator alloc = threadAllocators.Get();
 
     // Allocate all of the data structures that represent the scene...
@@ -213,13 +218,13 @@ WavefrontPathIntegrator::WavefrontPathIntegrator(
     guiding_device = new openpgl::cpp::Device(PGL_DEVICE_TYPE_CPU_4);
     guiding_deviceGPU = new openpgl::gpu::Device(openpgl::gpu::Device::EDeviceType_CPU);
 
-    this->enableGuiding = scene.integrator.parameters.GetOneBool("enableguiding", true);
-    this->guideSurface = scene.integrator.parameters.GetOneBool("surfaceguiding", true);
-    this->guideVolume = scene.integrator.parameters.GetOneBool("volumeguiding", true);
+    GuidingOptions->enableGuiding = scene.integrator.parameters.GetOneBool("enableguiding", true);
+    GuidingOptions->guideSurface = scene.integrator.parameters.GetOneBool("surfaceguiding", true);
+    GuidingOptions->guideVolume = scene.integrator.parameters.GetOneBool("volumeguiding", true);
+
     bool loadGuidingCache = scene.integrator.parameters.GetOneBool("loadGuidingCache", false);
     std::string guidingCacheFileName = scene.integrator.parameters.GetOneString("guidingCacheFileName", "");
     //openpgl::cpp::Field* guiding_field = nullptr;
-    std::cout << "enableGuiding: " << enableGuiding << "\tguideSurface: " << guideSurface << "\tguideVolume: " << guideVolume << std::endl;
     bool cacheLoaded = false;
 
     if (loadGuidingCache) {
@@ -242,6 +247,7 @@ WavefrontPathIntegrator::WavefrontPathIntegrator(
         guiding_field = std::shared_ptr<openpgl::cpp::Field>(new openpgl::cpp::Field(guiding_device, *guiding_fieldConfig));
         //enableGuiding = false;
     }
+	GuidingOptions->guidingField = guiding_field;
 #endif
 
     // Warn about unsupported stuff...
@@ -267,6 +273,9 @@ WavefrontPathIntegrator::WavefrontPathIntegrator(
         CHECK(mr);
         startSize = mr->BytesAllocated();
         CopyRendererOptionsToGPU();
+#if defined(PBRT_WITH_PATH_GUIDING)
+        CopyGuidingOptionsToGPU();
+#endif
     }
 #endif  // PBRT_BUILD_GPU_RENDERER
 
@@ -523,6 +532,7 @@ Float WavefrontPathIntegrator::Render() {
                 std::cout << std::endl << "Guiding Update Field: time(sec) = " << guidingUpdate.ElapsedSeconds() << std::endl;
 #endif
                 Timer guidingPrepare;
+		GuidingOptions->guidingField = guiding_field;
 #if defined(PBRT_WITH_PATH_GUIDING_PRINT_LOGS)
                 std::cout << std::endl << "Guiding Prepare Field: time(sec) = " << guidingPrepare.ElapsedSeconds() << std::endl;
 #endif

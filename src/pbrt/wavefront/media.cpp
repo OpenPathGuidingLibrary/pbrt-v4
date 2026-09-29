@@ -308,7 +308,7 @@ void WavefrontPathIntegrator::SampleMediumScattering(int wavefrontDepth) {
             typename GuidedPhaseFunctionWF<ConcretePhaseFunction>::VolumeSamplingDistribution* vsd = (typename GuidedPhaseFunctionWF<ConcretePhaseFunction>::VolumeSamplingDistribution*) pixelSampleState.vsd[w.pixelIndex];
             GuidedPhaseFunctionWF<ConcretePhaseFunction> gphase(w.phase, vsd);
             Float sample1D = -1.f; 
-            gphase.Init(this->guiding_field.get(), w.p, sample1D, this->enableGuiding && this->guideVolume);
+            gphase.Init(GetGuidingOptions().guidingField.get(), w.p, sample1D, GetGuidingOptions().enableGuiding && GetGuidingOptions().guideVolume);
 #endif
             // Sample direct lighting at medium scattering event.  First,
             // choose a light source.

@@ -184,7 +184,7 @@ void WavefrontPathIntegrator::EvaluateMaterialAndBSDF(MaterialEvalQueue *evalQue
             GuidedBSDFWF::SurfaceSamplingDistribution* ssd = (GuidedBSDFWF::SurfaceSamplingDistribution*) pixelSampleState.ssd[w.pixelIndex];
             GuidedBSDFWF gbsdf(bsdf, ssd);
             Float sample1D = -1.f; 
-            gbsdf.Init(this->guiding_field.get(), Point3f(w.pi), sample1D, this->enableGuiding && this->guideSurface);
+            gbsdf.Init(GetGuidingOptions().guidingField.get(), Point3f(w.pi), sample1D, GetGuidingOptions().enableGuiding && GetGuidingOptions().guideSurface);
 #endif
             // Sample BSDF and enqueue indirect ray at intersection point
             Vector3f wo = w.wo;
