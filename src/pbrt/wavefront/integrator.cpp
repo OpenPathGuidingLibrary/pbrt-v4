@@ -83,6 +83,7 @@ WavefrontPathIntegrator::WavefrontPathIntegrator(
     ThreadLocal<Allocator> threadAllocators(
         [memoryResource]() { return Allocator(memoryResource); });
 
+    RendererOptions = new PBRTRendererOptions();
     Allocator alloc = threadAllocators.Get();
 
     // Allocate all of the data structures that represent the scene...
@@ -201,7 +202,9 @@ WavefrontPathIntegrator::WavefrontPathIntegrator(
 #endif
     // Integrator parameters
     regularize = scene.integrator.parameters.GetOneBool("regularize", false);
-    maxDepth = scene.integrator.parameters.GetOneInt("maxdepth", 5);
+    RendererOptions->maxDepth = scene.integrator.parameters.GetOneInt("maxdepth", 5);
+    RendererOptions->minRRDepth = scene.integrator.parameters.GetOneInt("minrrdepth", 5);
+    RendererOptions->useNEE = scene.integrator.parameters.GetOneBool("usenee", true);
 
     initializeVisibleSurface = film.UsesVisibleSurface();
     samplesPerPixel = sampler.SamplesPerPixel();
@@ -263,6 +266,7 @@ WavefrontPathIntegrator::WavefrontPathIntegrator(
             dynamic_cast<CUDATrackedMemoryResource *>(memoryResource);
         CHECK(mr);
         startSize = mr->BytesAllocated();
+        CopyRendererOptionsToGPU();
     }
 #endif  // PBRT_BUILD_GPU_RENDERER
 
@@ -325,7 +329,7 @@ WavefrontPathIntegrator::WavefrontPathIntegrator(
             alloc.new_object<MediumScatterQueue>(maxQueueSize, alloc, havePhase);
     }
 
-    stats = alloc.new_object<Stats>(maxDepth, alloc);
+    stats = alloc.new_object<Stats>(RendererOptions->maxDepth, alloc);
 
 #ifdef PBRT_BUILD_GPU_RENDERER
     if (Options->useGPU) {
@@ -477,7 +481,7 @@ Float WavefrontPathIntegrator::Render() {
 
                     HandleEmissiveIntersection();
 
-                    if (wavefrontDepth == maxDepth)
+                    if (wavefrontDepth == GetRendererOptions().maxDepth)
                         break;
 
                     EvaluateMaterialsAndBSDFs(wavefrontDepth, cameraMotion);
@@ -557,6 +561,16 @@ Float WavefrontPathIntegrator::Render() {
             if (state == DisplayState::EXIT)
                 break;
             else if (state == DisplayState::RESET) {
+#ifdef PBRT_BUILD_GPU_RENDERER
+                if (Options->useGPU) {
+                    if(RendererOptions->update){
+                        CopyRendererOptionsToGPU();
+                        // Todo: better solution ?
+                        Allocator alloc = Allocator(memoryResource);
+                        stats = alloc.new_object<Stats>(RendererOptions->maxDepth, alloc);
+                    }
+                }
+#endif  // PBRT_BUILD_GPU_RENDERER
                 sampleIndex = firstSampleIndex - 1;
                 ParallelFor(
                     "Reset pixels", resolution.x * resolution.y,
@@ -610,7 +624,7 @@ void WavefrontPathIntegrator::HandleEscapedRays() {
                              w.r_u[0], w.r_u[1], w.r_u[2], w.r_u[3],
                              w.r_l[0], w.r_l[1], w.r_l[2], w.r_l[3]);
 
-                    if (w.depth == 0 || w.specularBounce) {
+                    if (w.depth == 0 || w.specularBounce || !GetRendererOptions().useNEE) {
                         LeNoMIS += Le / w.r_u.Average();
                         LeMIS += Le / w.r_u.Average();
                         L += w.beta * Le / w.r_u.Average();
@@ -664,7 +678,7 @@ void WavefrontPathIntegrator::HandleEmissiveIntersection() {
 
             // Compute area light's weighted radiance contribution to the path
             SampledSpectrum L(0.f);
-            if (w.depth == 0 || w.specularBounce) {
+            if (w.depth == 0 || w.specularBounce || !GetRendererOptions().useNEE) {
                 L = w.beta * Le / w.r_u.Average();
             } else {
                 // Compute MIS-weighted radiance contribution from area light

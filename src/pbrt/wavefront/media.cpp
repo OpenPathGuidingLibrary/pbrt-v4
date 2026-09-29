@@ -86,7 +86,7 @@ void WavefrontPathIntegrator::SampleMediumInteraction(int wavefrontDepth) {
                     // Add emission, if present.  Always do this and scale
                     // by sigma_a/sigma_maj rather than only doing it
                     // (without scaling) at absorption events.
-                    if (w.depth < maxDepth && mp.Le) {
+                    if (w.depth < GetRendererOptions().maxDepth && mp.Le) {
                         Float pr = sigma_maj[lambda.ChannelIdx()] * T_maj[lambda.ChannelIdx()];
                         SampledSpectrum r_e = r_u * sigma_maj * T_maj / pr;
 
@@ -194,7 +194,7 @@ void WavefrontPathIntegrator::SampleMediumInteraction(int wavefrontDepth) {
 
             // There's no more work to do if there was a scattering event in
             // the medium.
-            if (scattered || !beta || !r_u || w.depth == maxDepth)
+            if (scattered || !beta || !r_u || w.depth == GetRendererOptions().maxDepth)
                 return;
 
             // Otherwise, enqueue bump and medium stuff...
@@ -283,7 +283,7 @@ void WavefrontPathIntegrator::SampleMediumInteraction(int wavefrontDepth) {
             material.Dispatch(enqueue);
         });
 
-    if (wavefrontDepth == maxDepth)
+    if (wavefrontDepth == GetRendererOptions().maxDepth)
         return;
 
     ForEachType(SampleMediumScatteringCallback{wavefrontDepth, this},
@@ -316,7 +316,7 @@ void WavefrontPathIntegrator::SampleMediumScattering(int wavefrontDepth) {
             pstd::optional<SampledLight> sampledLight =
                 lightSampler.Sample(ctx, raySamples.direct.uc);
 
-            if (sampledLight) {
+            if (sampledLight && GetRendererOptions().useNEE) {
                 Light light = sampledLight->light;
                 // And now sample a point on the light.
                 pstd::optional<LightLiSample> ls =
@@ -393,7 +393,7 @@ void WavefrontPathIntegrator::SampleMediumScattering(int wavefrontDepth) {
             // sampling exactly from the phase function's distribution...
             SampledSpectrum rrBeta = beta * w.etaScale / r_u.Average();
 #if defined(PBRT_WITH_PATH_GUIDING)
-            if (rrBeta.MaxComponentValue() * pixelSampleState.rr_correction[w.pixelIndex] < 1 && w.depth >= 1) {
+            if (rrBeta.MaxComponentValue() * pixelSampleState.rr_correction[w.pixelIndex] < 1 && w.depth >= GetRendererOptions().minRRDepth) {
                 Float q = std::max<Float>(0, 1 - (rrBeta.MaxComponentValue() * pixelSampleState.rr_correction[w.pixelIndex]));
 #else
             if (rrBeta.MaxComponentValue() < 1 && w.depth >= /*GetRendererOptions().minRRDepth*/ 1) {

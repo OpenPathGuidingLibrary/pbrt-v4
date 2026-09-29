@@ -230,10 +230,10 @@ void WavefrontPathIntegrator::EvaluateMaterialAndBSDF(MaterialEvalQueue *evalQue
                 // depth earlier).
                 Float q = 1.f;
 #if defined(PBRT_WITH_PATH_GUIDING)
-                if (rrBeta.MaxComponentValue() * pixelSampleState.rr_correction[w.pixelIndex] < 1 && w.depth >= 1) {
+                if (rrBeta.MaxComponentValue() * pixelSampleState.rr_correction[w.pixelIndex] < 1 && w.depth >= GetRendererOptions().minRRDepth) {
                     q = std::max<Float>(0, 1 - (rrBeta.MaxComponentValue() * pixelSampleState.rr_correction[w.pixelIndex]));
 #else
-                if (rrBeta.MaxComponentValue() < 1 && w.depth >= 1) {
+                if (rrBeta.MaxComponentValue() < 1 && w.depth >= GetRendererOptions().minRRDepth) {
                     q = std::max<Float>(0, 1 - rrBeta.MaxComponentValue());
 #endif
                     if (raySamples.indirect.rr < q) {
@@ -308,7 +308,7 @@ void WavefrontPathIntegrator::EvaluateMaterialAndBSDF(MaterialEvalQueue *evalQue
 #else
             BxDFFlags flags = bsdf.Flags();
 #endif
-            if (IsNonSpecular(flags)) {
+            if (IsNonSpecular(flags) && GetRendererOptions().useNEE) {
                 // Choose a light source using the _LightSampler_
                 LightSampleContext ctx(w.pi, w.n, ns);
                 if (IsReflective(flags) && !IsTransmissive(flags))

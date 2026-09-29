@@ -58,15 +58,25 @@ struct PBRTOptions : BasicPBRTOptions {
     std::string ToString() const;
 };
 
+struct PBRTRendererOptions {
+    int maxDepth = 5;
+    int minRRDepth = 1;
+    bool useNEE = true;
+    bool update = false;
+};
+
 // Options Global Variable Declaration
 extern PBRTOptions *Options;
+extern PBRTRendererOptions *RendererOptions;
 
 #if defined(PBRT_BUILD_GPU_RENDERER)
 #if defined(__CUDACC__)
 extern __constant__ BasicPBRTOptions OptionsGPU;
+extern __constant__ PBRTRendererOptions RendererOptionsGPU;
 #endif  // __CUDACC__
 
 void CopyOptionsToGPU();
+void CopyRendererOptionsToGPU();
 #endif  // PBRT_BUILD_GPU_RENDERER
 
 // Options Inline Functions
@@ -77,6 +87,17 @@ PBRT_CPU_GPU inline const BasicPBRTOptions &GetOptions() {
     return OptionsGPU;
 #else
     return *Options;
+#endif
+}
+
+// RenderOptions Inline Functions
+PBRT_CPU_GPU inline const PBRTRendererOptions &GetRendererOptions();
+
+PBRT_CPU_GPU inline const PBRTRendererOptions &GetRendererOptions() {
+#if defined(PBRT_IS_GPU_CODE)
+    return RendererOptionsGPU;
+#else
+    return *RendererOptions;
 #endif
 }
 
