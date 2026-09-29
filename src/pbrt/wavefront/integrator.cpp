@@ -396,7 +396,7 @@ Float WavefrontPathIntegrator::Render() {
         if (!Options->displayServer.empty())
             ErrorExit(
                 "--interactive and --display-server cannot be used at the same time.");
-        gui = new GUI(film.GetFilename(), resolution, aggregate->Bounds());
+        gui = new GUI(film.GetFilename(), resolution, aggregate->Bounds(), cameraFromWorld);
     }
 
     Timer timer;

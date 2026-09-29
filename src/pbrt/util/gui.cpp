@@ -11,6 +11,17 @@
 #include <pbrt/util/error.h>
 #include <pbrt/util/image.h>
 #include <pbrt/util/parallel.h>
+#include <pbrt/util/progressreporter.h>
+
+#if defined(PBRT_WITH_PATH_GUIDING)
+#include <pbrt/wavefront/guidingoptions.h>
+#endif
+
+#include <iostream>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846264f 
+#endif
 
 #define GL_CHECK(call)                                                   \
     do {                                                                 \
@@ -70,6 +81,10 @@ void GUI::keyboardCallback(GLFWwindow *window, int key, int scan, int action, in
     doKey(GLFW_KEY_Q, 'q');
     doKey(GLFW_KEY_E, 'e');
 
+#if defined(PBRT_WITH_PATH_GUIDING)
+    doKey(GLFW_KEY_G, 'g');
+#endif
+
     doKey(GLFW_KEY_B, (mods & GLFW_MOD_SHIFT) ? 'B' : 'b');
     doKey(GLFW_KEY_C, 'c');
     doKey(GLFW_KEY_EQUAL, '=');
@@ -92,26 +107,19 @@ bool GUI::processMouse() {
     double amount = 1.f;
     if (!pressed)
         return false;
-    if (xoffset < 0) {
-        movingFromCamera = movingFromCamera * Rotate(-amount, Vector3f(0, 1, 0));
-        needsReset = true;
-        xoffset = 0;
-    }
-    if (xoffset > 0) {
-        movingFromCamera = movingFromCamera * Rotate(amount, Vector3f(0, 1, 0));
-        needsReset = true;
-        xoffset = 0;
-    }
-    if (yoffset > 0) {
-        movingFromCamera = movingFromCamera * Rotate(-amount, Vector3f(1, 0, 0));
-        needsReset = true;
-        yoffset = 0;
-    }
-    if (yoffset < 0) {
-        movingFromCamera = movingFromCamera * Rotate(amount, Vector3f(1, 0, 0));
-        needsReset = true;
-        yoffset = 0;
-    }
+
+    if(xoffset == 0 && yoffset == 0)
+        return false;
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureMouse)
+        return false;
+
+    movingFromCamera.processMouse(xoffset, yoffset);
+    xoffset = 0;
+    yoffset = 0;
+    needsReset = true;
+
     return needsReset;
 }
 
@@ -119,15 +127,86 @@ bool GUI::process() {
     bool needsReset = false;
     needsReset |= processKeys();
     needsReset |= processMouse();
+    needsReset |= processOptions();
+    return needsReset;
+}
+
+bool GUI::processOptions() {
+    bool needsReset = false;
+
+    if(RendererOptions->useNEE != guiRendererOptions.useNEE) {
+        RendererOptions->useNEE = guiRendererOptions.useNEE;
+        RendererOptions->update = true;
+        needsReset = true;
+    }
+    if(RendererOptions->maxDepth != guiRendererOptions.maxDepth) {
+        RendererOptions->maxDepth = guiRendererOptions.maxDepth;
+        RendererOptions->update = true;
+        needsReset = true;
+    }
+    if(RendererOptions->minRRDepth != guiRendererOptions.minRRDepth) {
+        RendererOptions->minRRDepth = guiRendererOptions.minRRDepth;
+        RendererOptions->update = true;
+        needsReset = true;
+    }
+
+#if defined(PBRT_WITH_PATH_GUIDING)
+    if(GuidingOptions->enableGuiding != guiGuidingOptions.enableGuiding) {
+        GuidingOptions->enableGuiding = guiGuidingOptions.enableGuiding;
+        GuidingOptions->update = true;
+        needsReset = true;
+    }
+    if(GuidingOptions->guideSurface != guiGuidingOptions.guideSurface) {
+        GuidingOptions->guideSurface = guiGuidingOptions.guideSurface;
+        GuidingOptions->update = true;
+        needsReset = true;
+    }
+    if(GuidingOptions->guideVolume != guiGuidingOptions.guideVolume) {
+        GuidingOptions->guideVolume = guiGuidingOptions.guideVolume;
+        GuidingOptions->update = true;
+        needsReset = true;
+    }
+#endif
     return needsReset;
 }
 
 bool GUI::processKeys() {
     bool needsReset = false;
 
+    if (keysDown.find('a') != keysDown.end()) {
+        movingFromCamera.processKey('a', moveScale);
+        needsReset = true;
+    }
+
+    if (keysDown.find('d') != keysDown.end()) {
+        movingFromCamera.processKey('d', moveScale);
+        needsReset = true;
+    }
+
+    if (keysDown.find('s') != keysDown.end()) {
+        movingFromCamera.processKey('s', moveScale);
+        needsReset = true;
+    }
+
+    if (keysDown.find('w') != keysDown.end()) {
+        movingFromCamera.processKey('w', moveScale);
+        needsReset = true;
+    }
+
+    if (keysDown.find('q') != keysDown.end()) {
+        movingFromCamera.processKey('q', moveScale);
+        needsReset = true;
+    }
+
+    if (keysDown.find('e') != keysDown.end()) {
+        movingFromCamera.processKey('e', moveScale);
+        needsReset = true;
+    }
+/*
     auto handleNeedsReset = [&](char key, std::function<Transform(Transform)> update) {
         if (keysDown.find(key) != keysDown.end()) {
-            movingFromCamera = update(movingFromCamera);
+            movingFromCamera.processKey(key, moveScale);
+            //movingFromCamera = update(movingFromCamera);
             needsReset = true;
         }
     };
@@ -153,6 +232,12 @@ bool GUI::processKeys() {
     handleNeedsReset('D',
                      [&](Transform t) { return t * Rotate(.5f, Vector3f(1, 0, 0)); });
     handleNeedsReset('r', [&](Transform t) { return Transform(); });
+*/
+
+    if (keysDown.find('g') != keysDown.end()) {
+        keysDown.erase(keysDown.find('g'));
+        showGUI = !showGUI;
+    }
 
     // No reset needed for these.
     if (keysDown.find('c') != keysDown.end()) {
@@ -223,9 +308,30 @@ void GUI::cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
     lastY = ypos;
 }
 
-GUI::GUI(std::string title, Vector2i resolution, Bounds3f sceneBounds)
-    : resolution(resolution) {
+void GUI::DrawOptions() {
+    ImGui::Begin("Render settings");
+    ImGui::SeparatorText("Path Tracer:");
+    ImGui::Checkbox("Use NEE:", &guiRendererOptions.useNEE);
+    ImGui::SliderInt("Max depth", &guiRendererOptions.maxDepth, 1, 30);
+    ImGui::SliderInt("Min RR depth", &guiRendererOptions.minRRDepth, 1, 30);
+#if defined(PBRT_WITH_PATH_GUIDING)
+    ImGui::SeparatorText("Guiding:");
+    ImGui::Checkbox("Enable:", &guiGuidingOptions.enableGuiding);
+    ImGui::Checkbox("Surface guiding:", &guiGuidingOptions.guideSurface);
+    ImGui::Checkbox("Volume guiding:", &guiGuidingOptions.guideVolume);
+#endif
+    ImGui::End();
+}
 
+
+
+GUI::GUI(std::string title, Vector2i resolution, Bounds3f sceneBounds, Transform cameraFromWorld)
+    : resolution(resolution), movingFromCamera(cameraFromWorld) {
+
+    guiRendererOptions = GetRendererOptions();
+#if defined(PBRT_WITH_PATH_GUIDING)
+    guiGuidingOptions = GetGuidingOptions();
+#endif
     moveScale = Length(sceneBounds.Diagonal()) / 1000.f;
 
     glfwSetErrorCallback(glfwErrorCallback);
@@ -243,14 +349,37 @@ GUI::GUI(std::string title, Vector2i resolution, Bounds3f sceneBounds)
     glfwSetMouseButtonCallback(window, glfwMouseButtonCallback);
     glfwSetCursorPosCallback(window, glfwCursorPosCallback);
 
+
     glfwSetWindowUserPointer(window, this);
     glfwMakeContextCurrent(window);
 
+    // Initialize ImGui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    //ImGui::StyleColorsDark();
+    ImGui::Spectrum::StyleColorsSpectrum();
+    /*
+    ImGuiStyle& style = ImGui::GetStyle(); 
+    style.WindowBorderSize = 0.5f;
+    style.FrameRounding = 5.f;
+    style.GrabRounding = 3.f; 
+    style.ChildRounding = 3.f; 
+    style.FrameBorderSize = 0.0f;
+    */
+    //setStyle();
+    //ImGuiStyle& style = ImGui::GetStyle();
+    //ImVec4 windowBgColor = style.Colors[ImGuiCol_WindowBg];
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 130");
+
+
+/*
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
+*/
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
         LOG_FATAL("gladLoadGLLoader failed");
 
@@ -268,8 +397,32 @@ GUI::~GUI() {
 #endif  // PBRT_BUILD_GPU_RENDERER
     delete[] cpuFramebuffer;
 
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
     glfwDestroyWindow(window);
     glfwTerminate();
+}
+
+void GUI::UpdateFPS() {
+
+    if (frameCounter > 0) {
+        float fps = 1.f / frameTimer.ElapsedSeconds();
+        float alpha = 1.f/float(frameCounter);
+        
+        avgFPS = (1.f-alpha)*avgFPS + alpha*fps;
+        
+        if(fpsUpdateTimer.ElapsedSeconds() > 0.5f)
+        {
+            std::stringstream s; 
+            s << "Fps: "<< avgFPS;
+            glfwSetWindowTitle(window, s.str().c_str());
+            fpsUpdateTimer = Timer();
+        }
+        frameTimer = Timer();
+    }
+    frameCounter = std::min(frameCounter+1,32);
 }
 
 DisplayState GUI::RefreshDisplay() {
@@ -294,8 +447,22 @@ DisplayState GUI::RefreshDisplay() {
             glDrawPixels(resolution.x, resolution.y, GL_RGB, GL_FLOAT, cpuFramebuffer));
     }
 
+    if(showGUI) {
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        DrawOptions();
+
+        // Main Window
+        ImGui::Render();
+
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    }
     glfwSwapBuffers(window);
     glfwPollEvents();
+
+    UpdateFPS();
 
     if (recordFrames) {
         const RGB *fb = nullptr;
@@ -337,4 +504,127 @@ DisplayState GUI::RefreshDisplay() {
         return DisplayState::NONE;
 }
 
-}  // namespace pbrt
+
+MovingCamera::MovingCamera(Transform cameraFromWorld) {
+    m_cameraFromWorld = cameraFromWorld;
+    ExtractLookAt(Inverse(cameraFromWorld));
+}
+
+void MovingCamera::ExtractLookAt(Transform transform){
+
+    init_origin = transform(Point3f(0.f, 0.f, 0.f));
+    init_front = transform(Vector3f(0.f, 0.f, 1.f));
+    init_up = transform(Vector3f(0.f, 1.f, 0.f));
+
+    origin = init_origin;
+    front = init_front;
+    if(init_up[0] > init_up[1]) {
+        if(init_up[0] > init_up[2]) {
+            world_up = Vector3f(1.f, 0.f, 0.f);
+            cameraUp = X_UP;
+        } else {
+            world_up = Vector3f(0.f, 0.f, 1.f);
+            cameraUp = Z_UP;
+        }
+    } else {
+        if(init_up[1] > init_up[2]) {
+            world_up = Vector3f(0.f, 1.f, 0.f);
+            cameraUp = Y_UP;
+        } else {
+            world_up = Vector3f(0.f, 0.f, 1.f);
+            cameraUp = Z_UP;
+        }
+    }
+
+    switch (cameraUp) {
+        case X_UP: {
+            break;
+        }
+        case Y_UP: {
+            init_pitch = std::acos(init_front[1]) * 180.f/ M_PI;
+            init_yaw   = std::atan2(init_front[2], init_front[0]) * 180.f/ M_PI;
+            break;
+        }
+        case Z_UP: {
+            init_pitch = std::acos(init_front[2]) * 180.f/ M_PI;
+            init_yaw   = std::atan2(init_front[1], init_front[0]) * 180.f/ M_PI;
+            break;
+        }        
+    }
+    
+    std::cout << "cameraUp = " << cameraUp << std::endl;
+
+    yaw = init_yaw;
+    pitch = init_pitch;
+}
+
+void MovingCamera::processKey(char key, float moveScale) {
+    moveScale *= 5.f;
+    switch (key){
+        case 'w': {
+            origin += front * moveScale;
+            break;
+        }
+        case 'a': {
+            origin -= Normalize(Cross(front, world_up)) * moveScale;
+            break;
+        }
+        case 's': {
+            origin -= front * moveScale;
+            break;
+        }
+        case 'd': {
+            origin += Normalize(Cross(front, world_up)) * moveScale;
+            break;
+        }
+        case 'q': {
+            origin += world_up * moveScale;
+            break;
+        }
+        case 'e': {
+            origin -= world_up * moveScale;
+            break;
+        }
+        case 'r': {
+            origin = init_origin;
+            front = init_front;
+            yaw = init_yaw;
+            pitch = init_pitch;
+            break;
+        }
+        default: {
+            break;
+        }
+    }
+}
+
+void MovingCamera::processMouse(Float xoffset, Float yoffset){
+    
+    switch (cameraUp) {
+        case X_UP: {
+            break;
+        }
+        case Y_UP: {
+            yaw += xoffset * 2.0f;
+            pitch -= yoffset;
+            front[0] = std::cos(yaw * (M_PI / 180.f)) * std::sin(pitch * (M_PI / 180.f));
+            front[1] = std::cos(pitch * (M_PI / 180.f));
+            front[2] = std::sin(yaw * (M_PI / 180.f)) * std::sin(pitch * (M_PI / 180.f));
+            break;
+        }
+        case Z_UP: {
+                yaw -= xoffset * 2.0f;
+                pitch -= yoffset;
+                front[0] = std::cos(yaw * (M_PI / 180.f)) * std::sin(pitch * (M_PI / 180.f));
+                front[1] = std::sin(yaw * (M_PI / 180.f)) * std::sin(pitch * (M_PI / 180.f));
+                front[2] = std::cos(pitch * (M_PI / 180.f));
+            break;
+        }        
+    }
+}
+
+Transform MovingCamera::GetTransform() const {
+    //std::cout << m_cameraFromWorld * Inverse(LookAt(origin, origin+front,world_up)) << std::endl;
+    return m_cameraFromWorld * Inverse(Scale(-1.f, 1.f, 1.f) * LookAt(origin, origin+front,world_up));
+}
+}

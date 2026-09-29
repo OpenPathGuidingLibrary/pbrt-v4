@@ -111,10 +111,11 @@ add_subdirectory (utf8proc)
 set (QOI_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/qoi PARENT_SCOPE)
 
 ###########################################################################
-# glfw / glad
+# glfw / glad / imgui
 
 set (GLFW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/glfw/include PARENT_SCOPE)
 set (GLAD_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/glad/include PARENT_SCOPE)
+set (IMGUI_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/imgui ${CMAKE_CURRENT_SOURCE_DIR}/imgui/backends PARENT_SCOPE)
 
 set (GLFW_LIBRARY_TYPE STATIC CACHE STRING "" FORCE)
 set (GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -124,9 +125,13 @@ set (GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory (glfw)
 add_subdirectory (glad)
 
+set (IMGUI_USE_DARK_THEME ON CACHE BOOL "" FORCE)
+
+add_subdirectory (imgui)
+
 set_property (TARGET glfw PROPERTY FOLDER "ext")
 set_property (TARGET glad PROPERTY FOLDER "ext")
-
+set_property (TARGET imgui PROPERTY FOLDER "ext")
 ###########################################################################
 # TBB
 if (PBRT_WITH_PATH_GUIDING OR PBRT_WITH_OIDN)

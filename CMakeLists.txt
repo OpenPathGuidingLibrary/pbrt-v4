@@ -925,6 +925,7 @@ target_include_directories (pbrt_lib PUBLIC
   ${CMAKE_CURRENT_BINARY_DIR}
   ${GLFW_INCLUDE}
   ${GLAD_INCLUDE}
+  ${IMGUI_INCLUDE}
 )
 
 if (PBRT_WITH_PATH_GUIDING)
@@ -966,6 +967,7 @@ set (ALL_PBRT_LIBS
   utf8proc
   glfw
   glad
+  imgui
   OpenGL::GL
   )
 
