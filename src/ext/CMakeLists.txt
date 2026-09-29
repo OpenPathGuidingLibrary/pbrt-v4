@@ -275,9 +275,11 @@ if (PBRT_WITH_PATH_GUIDING)
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DOPENPGL_BUILD_STATIC=OFF
       -DOPENPGL_TBB_ROOT=${CMAKE_INSTALL_PREFIX}
+      -DOPENPGL_EF_IMAGE_SPACE_GUIDING_BUFFER=ON
       -DOPENPGL_EF_RADIANCE_CACHES=ON
-      -DOPENPGL_DIRECTION_COMPRESSION=ON
-      -DOPENPGL_RADIANCE_COMPRESSION=ON
+      -DOPENPGL_DIRECTION_COMPRESSION=OFF
+      -DOPENPGL_RADIANCE_COMPRESSION=OFF
+      -DCMAKE_POLICY_VERSION_MINIMUM=3.5
     )
 
     ExternalProject_Add(OpenPGL
@@ -303,11 +305,20 @@ if (PBRT_WITH_PATH_GUIDING)
       PARENT_SCOPE
     )
 
-    set (OPENPGL_LIBRARIES
-      openpgl
-      tbb
-      PARENT_SCOPE
-    )
+    if (NOT APPLE)
+      set (OPENPGL_LIBRARIES
+        openpgl
+        tbb
+        gomp
+        PARENT_SCOPE
+      )
+    else()
+      set (OPENPGL_LIBRARIES
+        openpgl
+        tbb
+        PARENT_SCOPE
+      )
+    endif()
   endif()
 
 endif()
