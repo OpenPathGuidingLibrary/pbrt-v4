@@ -76,8 +76,8 @@ void WavefrontPathIntegrator::GenerateCameraRays(int y0, Transform movingFromCam
 #if !defined(PBRT_BUILD_GPU_RENDERER)
             if(sampleIndex == 0)
             {
-                pixelSampleState.ssd[pixelIndex] = new openpgl::cpp::SurfaceSamplingDistribution(this->guiding_field.get());
-                pixelSampleState.vsd[pixelIndex] = new openpgl::cpp::VolumeSamplingDistribution(this->guiding_field.get());
+                pixelSampleState.ssd[pixelIndex] = new openpgl::cpp::SurfaceSamplingDistribution(GuidingOptions->guidingField.get());
+                pixelSampleState.vsd[pixelIndex] = new openpgl::cpp::VolumeSamplingDistribution(GuidingOptions->guidingField.get());
             }
 #endif
 #endif
