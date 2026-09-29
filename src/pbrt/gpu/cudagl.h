@@ -32,7 +32,7 @@
 #include <pbrt/gpu/util.h>
 #include <pbrt/util/error.h>
 
-#include <glad/glad.h>
+//#include <glad/glad.h>
 
 #include <cuda.h>
 #include <cuda_gl_interop.h>
