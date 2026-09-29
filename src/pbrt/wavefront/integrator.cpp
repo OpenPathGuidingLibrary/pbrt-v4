@@ -185,19 +185,61 @@ WavefrontPathIntegrator::WavefrontPathIntegrator(
         lightSamplerName = "uniform";
     lightSampler = LightSampler::Create(lightSamplerName, allLights, alloc);
     LOG_VERBOSE("Finished creating light sampler");
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+    if (scene.integrator.name != "path" && scene.integrator.name != "volpath" &&
+        scene.integrator.name != "guidedpath" && scene.integrator.name != "guidedvolpath")
+        Warning(&scene.integrator.loc,
+                "Ignoring specified integrator \"%s\": the wavefront integrator "
+                "always uses a \"guidedvolpath\" integrator.",
+                scene.integrator.name);
+#else
     if (scene.integrator.name != "path" && scene.integrator.name != "volpath")
         Warning(&scene.integrator.loc,
                 "Ignoring specified integrator \"%s\": the wavefront integrator "
                 "always uses a \"volpath\" integrator.",
                 scene.integrator.name);
-
+#endif
     // Integrator parameters
     regularize = scene.integrator.parameters.GetOneBool("regularize", false);
     maxDepth = scene.integrator.parameters.GetOneInt("maxdepth", 5);
 
     initializeVisibleSurface = film.UsesVisibleSurface();
     samplesPerPixel = sampler.SamplesPerPixel();
+
+#if defined(PBRT_WITH_PATH_GUIDING)
+    guiding_device = new openpgl::cpp::Device(PGL_DEVICE_TYPE_CPU_4);
+    guiding_deviceGPU = new openpgl::gpu::Device(openpgl::gpu::Device::EDeviceType_CPU);
+
+    this->enableGuiding = scene.integrator.parameters.GetOneBool("enableguiding", true);
+    this->guideSurface = scene.integrator.parameters.GetOneBool("surfaceguiding", true);
+    this->guideVolume = scene.integrator.parameters.GetOneBool("volumeguiding", true);
+    bool loadGuidingCache = scene.integrator.parameters.GetOneBool("loadGuidingCache", false);
+    std::string guidingCacheFileName = scene.integrator.parameters.GetOneString("guidingCacheFileName", "");
+    //openpgl::cpp::Field* guiding_field = nullptr;
+    std::cout << "enableGuiding: " << enableGuiding << "\tguideSurface: " << guideSurface << "\tguideVolume: " << guideVolume << std::endl;
+    bool cacheLoaded = false;
+
+    if (loadGuidingCache) {
+        if(FileExists(guidingCacheFileName)) {
+            std::cout << "GuidedVolPathIntegrator: loading guiding cache = " << guidingCacheFileName << std::endl;
+            guiding_field = std::shared_ptr<openpgl::cpp::Field>(new openpgl::cpp::Field(guiding_device, guidingCacheFileName));
+            cacheLoaded = true;
+            //guideTraining = false;
+        } else {
+            Warning(&scene.integrator.loc,
+                "Path guiding is enabled but the specified guiding cache file: %s does not exist.\n Disabling path guiding.",
+                guidingCacheFileName);
+            enableGuiding = false;
+        }
+    } else {
+        //Warning(&scene.integrator.loc,
+        //        "Path guiding is enabled but no guiding cache is loaded.\n Disabling path guiding.");
+        guiding_fieldConfig = new openpgl::cpp::FieldConfig();
+        guiding_fieldConfig->Init(PGL_SPATIAL_STRUCTURE_KDTREE, PGL_DIRECTIONAL_DISTRIBUTION_PARALLAX_AWARE_VMM);
+        guiding_field = std::shared_ptr<openpgl::cpp::Field>(new openpgl::cpp::Field(guiding_device, *guiding_fieldConfig));
+        //enableGuiding = false;
+    }
+#endif
 
     // Warn about unsupported stuff...
     if (Options->forceDiffuse)
@@ -236,7 +278,17 @@ WavefrontPathIntegrator::WavefrontPathIntegrator(
                 scanlinesPerPass);
 
     pixelSampleState = SOA<PixelSampleState>(maxQueueSize, alloc);
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+#if defined(PBRT_WITH_PATH_GUIDING_PRINT_LOGS)
+    size_t pssbSize = maxQueueSize*11*sizeof(PathSegment);
+    std::cout << "pssbSize = " << (pssbSize / 1024.0f) / 1024.0f << " MB" << std::endl;
+    size_t sdsbSize = maxQueueSize*11*(sizeof(SampleData)+sizeof(ZeroValueSampleData));
+    std::cout << "sdsbSize = " << (sdsbSize / 1024.0f) / 1024.0f << " MB" << std::endl;
+    std::cout << "scanlinesPerPass = " << scanlinesPerPass << "\t maxQueueSize = " << maxQueueSize << std::endl;
+#endif
+    pathSegmentStorageBuffer = PathSegmentStorageBuffer(maxQueueSize, guiding_deviceGPU);
+    sampleDataStorageBuffer = SampleDataStorageBuffer(maxQueueSize, guiding_deviceGPU);
+#endif
     rayQueues[0] = alloc.new_object<RayQueue>(maxQueueSize, alloc);
     rayQueues[1] = alloc.new_object<RayQueue>(maxQueueSize, alloc);
 
@@ -370,6 +422,11 @@ Float WavefrontPathIntegrator::Render() {
                    "Update camera ray stats",
                    PBRT_CPU_GPU_LAMBDA() { stats->cameraRays += cameraRayQueue->Size(); });
 
+#if defined(PBRT_WITH_PATH_GUIDING)
+                ResetPathSegmentStorage();
+                Timer gpuRenderTimer;
+#endif
+
                 // Trace rays and estimate radiance up to maximum ray depth
                 for (int wavefrontDepth = 0; true; ++wavefrontDepth) {
                     // Reset queues before tracing rays
@@ -430,13 +487,52 @@ Float WavefrontPathIntegrator::Render() {
 
                     SampleSubsurface(wavefrontDepth);
                 }
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+#if defined(PBRT_WITH_PATH_GUIDING_PRINT_LOGS)
+                std::cout << std::endl << "GPU Render: time(sec) = " << gpuRenderTimer.ElapsedSeconds() << std::endl;
+#endif         
+                Timer timerPSD;
+                pathSegmentStorageBuffer.PrepareSampleData(sampleDataStorageBuffer);
+#if defined(PBRT_WITH_PATH_GUIDING_PRINT_LOGS)
+                std::cout << std::endl << "PrepareSampleData: time(sec) = " << timerPSD.ElapsedSeconds() << std::endl;
+#endif
+                sampleDataStorageBuffer.CollectSampleData(guiding_sampleStorage); 
+#if defined(PBRT_WITH_PATH_GUIDING_PRINT_LOGS)
+                std::cout << "guiding_sampleStorage::Validate() = "<< guiding_sampleStorage.Validate() << std::endl; 
+                std::cout << std::endl << "SampleStorage: numSurfaceSamples = " << guiding_sampleStorage.GetSizeSurface() << "\t numZeroSurfaceSamples = " << guiding_sampleStorage.GetSizeZeroValueSurface() << " \t numVolumeSamples = " << guiding_sampleStorage.GetSizeVolume() << "\t numZeroVolumeSamples = " << guiding_sampleStorage.GetSizeZeroValueVolume()  << std::endl;
+#endif
+#endif
                 UpdateFilm();
             }
 
             // Copy updated film pixels to buffer for the display server.
             if (Options->useGPU && !Options->displayServer.empty())
                 UpdateDisplayRGBFromFilm(pixelBounds);
+
+#if defined(PBRT_WITH_PATH_GUIDING)
+            // TODO: This should be packed/hidden inside OpenPGL
+            if(guiding_field) {
+                Timer guidingUpdate;
+                guiding_field->Update(guiding_sampleStorage);
+#if defined(PBRT_WITH_PATH_GUIDING_PRINT_LOGS)
+                std::cout << "guiding_field::Validate() = "<< guiding_field->Validate() << std::endl; 
+                std::cout << std::endl << "Guiding Update Field: time(sec) = " << guidingUpdate.ElapsedSeconds() << std::endl;
+#endif
+                Timer guidingPrepare;
+#if defined(PBRT_WITH_PATH_GUIDING_PRINT_LOGS)
+                std::cout << std::endl << "Guiding Prepare Field: time(sec) = " << guidingPrepare.ElapsedSeconds() << std::endl;
+#endif
+                if (Options->useGPU) {
+#if defined(PBRT_WITH_PATH_GUIDING)
+                     Timer guidingUpload;
+#if defined(PBRT_WITH_PATH_GUIDING_PRINT_LOGS)
+                    std::cout << std::endl << "Guiding Upload Field: time(sec) = " << guidingUpload.ElapsedSeconds() << std::endl;
+#endif
+#endif
+                }
+            }
+            guiding_sampleStorage.Clear();
+#endif
 
             progress.Update();
         }
@@ -500,6 +596,8 @@ void WavefrontPathIntegrator::HandleEscapedRays() {
         PBRT_CPU_GPU_LAMBDA(const EscapedRayWorkItem w) {
             // Compute weighted radiance for escaped ray
             SampledSpectrum L(0.f);
+            SampledSpectrum LeNoMIS(0.f);
+            SampledSpectrum LeMIS(0.f);
             for (const auto &light : *infiniteLights) {
                 if (SampledSpectrum Le = light.Le(Ray(w.rayo, w.rayd), w.lambda); Le) {
                     // Compute path radiance contribution from infinite light
@@ -513,6 +611,8 @@ void WavefrontPathIntegrator::HandleEscapedRays() {
                              w.r_l[0], w.r_l[1], w.r_l[2], w.r_l[3]);
 
                     if (w.depth == 0 || w.specularBounce) {
+                        LeNoMIS += Le / w.r_u.Average();
+                        LeMIS += Le / w.r_u.Average();
                         L += w.beta * Le / w.r_u.Average();
                     } else {
                         // Compute MIS-weighted radiance contribution from infinite light
@@ -520,10 +620,20 @@ void WavefrontPathIntegrator::HandleEscapedRays() {
                         Float lightChoicePDF = lightSampler.PMF(ctx, light);
                         SampledSpectrum r_l =
                             w.r_l * lightChoicePDF * light.PDF_Li(ctx, w.rayd, true);
+                        
+                        LeNoMIS += Le / w.r_u.Average();
+                        LeMIS += Le / (w.r_u + r_l).Average();
+                        
                         L += w.beta * Le / (w.r_u + r_l).Average();
                     }
                 }
             }
+
+#if defined(PBRT_WITH_PATH_GUIDING)
+            Vector3f Le = Vector3f(LeNoMIS[0], LeNoMIS[1], LeNoMIS[2]);
+            Float misWeight = 1.f;
+            pathSegmentStorageBuffer.AddInfiniteLightSample(w.pixelIndex, w.rayo, w.rayd, Le, misWeight);
+#endif            
 
             // Update pixel radiance if ray's radiance is nonzero
             if (L) {
@@ -568,6 +678,11 @@ void WavefrontPathIntegrator::HandleEmissiveIntersection() {
                 L = w.beta * Le / (r_u + r_l).Average();
             }
 
+#if defined(PBRT_WITH_PATH_GUIDING)
+            Float misWeight = 1.f;
+            pathSegmentStorageBuffer.AddDirectContribution(w.pixelIndex, Vector3f(Le[0], Le[1], Le[2]), misWeight);
+#endif             
+
 #if !defined(PBRT_RGB_RENDERING)
             PBRT_DBG("Added L %f %f %f %f for pixel index %d\n", L[0], L[1], L[2], L[3],
                      w.pixelIndex);
@@ -584,9 +699,17 @@ void WavefrontPathIntegrator::HandleEmissiveIntersection() {
 
 void WavefrontPathIntegrator::TraceShadowRays(int wavefrontDepth) {
     if (haveMedia)
+#if defined(PBRT_WITH_PATH_GUIDING)
+        aggregate->IntersectShadowTr(maxQueueSize, shadowRayQueue, &pixelSampleState, &pathSegmentStorageBuffer);
+#else
         aggregate->IntersectShadowTr(maxQueueSize, shadowRayQueue, &pixelSampleState);
+#endif
     else
+#if defined(PBRT_WITH_PATH_GUIDING)
+        aggregate->IntersectShadow(maxQueueSize, shadowRayQueue, &pixelSampleState, &pathSegmentStorageBuffer);
+#else
         aggregate->IntersectShadow(maxQueueSize, shadowRayQueue, &pixelSampleState);
+#endif
     // Reset shadow ray queue
     Do(
         "Reset shadowRayQueue", PBRT_CPU_GPU_LAMBDA() {
@@ -770,4 +893,14 @@ void WavefrontPathIntegrator::UpdateFramebufferFromFilm(Bounds2i pixelBounds,
         });
 }
 
+#if defined(PBRT_WITH_PATH_GUIDING)
+void WavefrontPathIntegrator::ResetPathSegmentStorage() {
+    ParallelFor(
+        "Reset PathSegmentStorage", maxQueueSize, PBRT_CPU_GPU_LAMBDA(int pixelIndex) {
+            pathSegmentStorageBuffer.Reset(pixelIndex);
+            sampleDataStorageBuffer.Reset(pixelIndex);
+        });
+}
+
+#endif
 }  // namespace pbrt

@@ -124,8 +124,17 @@ void WavefrontPathIntegrator::SampleMediumInteraction(int wavefrontDepth) {
                             using PhaseFunction = typename std::remove_const_t<
                                 std::remove_reference_t<decltype(*ptr)>>;
                             mediumScatterQueue->Push(MediumScatterWorkItem<PhaseFunction>{
-                                p, w.depth, lambda, beta, r_u, ptr, -ray.d, ray.time,
-                                w.etaScale, ray.medium, w.pixelIndex});
+                                p, 
+                                w.depth, 
+                                lambda, 
+                                beta, 
+                                r_u, 
+                                ptr,
+                                -ray.d, 
+                                ray.time,
+                                w.etaScale, 
+                                ray.medium, 
+                                w.pixelIndex});
                         };
                         DCHECK_RARE(1e-6f, !beta);
                         if (beta && r_u)
@@ -248,7 +257,7 @@ void WavefrontPathIntegrator::SampleMediumInteraction(int wavefrontDepth) {
             auto enqueue = [=](auto ptr) {
                 using Material = typename std::remove_reference_t<decltype(*ptr)>;
                 q->Push<MaterialEvalWorkItem<Material>>(
-                    MaterialEvalWorkItem<Material>{ptr,
+                    MaterialEvalWorkItem<Material>{ptr,                                                
                                                    w.pi,
                                                    w.n,
                                                    w.dpdu,
@@ -295,7 +304,12 @@ void WavefrontPathIntegrator::SampleMediumScattering(int wavefrontDepth) {
         PBRT_CPU_GPU_LAMBDA(const MediumScatterWorkItem<ConcretePhaseFunction> w) {
             RaySamples raySamples = pixelSampleState.samples[w.pixelIndex];
             Vector3f wo = w.wo;
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+            typename GuidedPhaseFunctionWF<ConcretePhaseFunction>::VolumeSamplingDistribution* vsd = (typename GuidedPhaseFunctionWF<ConcretePhaseFunction>::VolumeSamplingDistribution*) pixelSampleState.vsd[w.pixelIndex];
+            GuidedPhaseFunctionWF<ConcretePhaseFunction> gphase(w.phase, vsd);
+            Float sample1D = -1.f; 
+            gphase.Init(this->guiding_field.get(), w.p, sample1D, this->enableGuiding && this->guideVolume);
+#endif
             // Sample direct lighting at medium scattering event.  First,
             // choose a light source.
             LightSampleContext ctx(Point3fi(w.p), Normal3f(0, 0, 0), Normal3f(0, 0, 0));
@@ -309,7 +323,11 @@ void WavefrontPathIntegrator::SampleMediumScattering(int wavefrontDepth) {
                     light.SampleLi(ctx, raySamples.direct.u, w.lambda, true);
                 if (ls && ls->L && ls->pdf > 0) {
                     Vector3f wi = ls->wi;
+#if defined(PBRT_WITH_PATH_GUIDING)
+                    SampledSpectrum beta = w.beta * gphase.p(wo, wi);
+#else
                     SampledSpectrum beta = w.beta * w.phase->p(wo, wi);
+#endif
 #if !defined(PBRT_RGB_RENDERING)
                     PBRT_DBG("Phase phase beta %f %f %f %f\n", beta[0], beta[1], beta[2],
                              beta[3]);
@@ -319,7 +337,11 @@ void WavefrontPathIntegrator::SampleMediumScattering(int wavefrontDepth) {
                     // Compute PDFs for direct lighting MIS calculation.
                     Float lightPDF = ls->pdf * sampledLight->p;
                     Float phasePDF =
+#if defined(PBRT_WITH_PATH_GUIDING)
+                        IsDeltaLight(light.Type()) ? 0.f : gphase.PDF(wo, wi);
+#else
                         IsDeltaLight(light.Type()) ? 0.f : w.phase->PDF(wo, wi);
+#endif
                     SampledSpectrum r_u = w.r_u * phasePDF;
                     SampledSpectrum r_l = w.r_u * lightPDF;
 
@@ -351,21 +373,32 @@ void WavefrontPathIntegrator::SampleMediumScattering(int wavefrontDepth) {
 
             // Sample indirect lighting.
             pstd::optional<PhaseFunctionSample> phaseSample =
+#if defined(PBRT_WITH_PATH_GUIDING)
+                gphase.Sample_p(wo, raySamples.indirect.u);
+#else
                 w.phase->Sample_p(wo, raySamples.indirect.u);
+#endif
             if (!phaseSample || phaseSample->pdf == 0)
                 return;
 
             SampledSpectrum beta = w.beta * phaseSample->p / phaseSample->pdf;
             SampledSpectrum r_u = w.r_u;
             SampledSpectrum r_l = w.r_u / phaseSample->pdf;
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+            pixelSampleState.rr_correction[w.pixelIndex] *= phaseSample->pdf / phaseSample->phasePdf;
+#endif
             // Russian roulette
             // TODO: should we even bother? Generally beta is one here,
             // due to the way scattering events are scattered and because we're
             // sampling exactly from the phase function's distribution...
             SampledSpectrum rrBeta = beta * w.etaScale / r_u.Average();
-            if (rrBeta.MaxComponentValue() < 1 && w.depth >= 1) {
+#if defined(PBRT_WITH_PATH_GUIDING)
+            if (rrBeta.MaxComponentValue() * pixelSampleState.rr_correction[w.pixelIndex] < 1 && w.depth >= 1) {
+                Float q = std::max<Float>(0, 1 - (rrBeta.MaxComponentValue() * pixelSampleState.rr_correction[w.pixelIndex]));
+#else
+            if (rrBeta.MaxComponentValue() < 1 && w.depth >= /*GetRendererOptions().minRRDepth*/ 1) {
                 Float q = std::max<Float>(0, 1 - rrBeta.MaxComponentValue());
+#endif
                 if (raySamples.indirect.rr < q) {
                     PBRT_DBG("RR terminated medium indirect with q %f pixel index %d\n",
                              q, w.pixelIndex);

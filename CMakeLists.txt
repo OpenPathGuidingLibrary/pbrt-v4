@@ -101,9 +101,13 @@ endif ()
 ###########################################################################
 # path guiding (Open PGL)
 option(PBRT_WITH_PATH_GUIDING "Build PBRT with path guiding (Open PGL) support." ON)
-
+option(PBRT_WITH_PATH_GUIDING_PRINT_LOGS "Build PBRT with GPU path guiding (Open PGL) support." ON)
 if(PBRT_WITH_PATH_GUIDING)
   list (APPEND PBRT_DEFINITIONS "PBRT_WITH_PATH_GUIDING")
+endif()
+
+if(PBRT_WITH_PATH_GUIDING_PRINT_LOGS)
+  list (APPEND PBRT_DEFINITIONS "PBRT_WITH_PATH_GUIDING_PRINT_LOGS")
 endif()
 
 ###########################################################################
@@ -844,11 +848,17 @@ add_custom_command (OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/pbrt_soa.h
     DEPENDS soac ${PBRT_SOURCE_CODE}/src/pbrt/pbrt.soa)
 set (PBRT_SOA_GENERATED ${CMAKE_CURRENT_BINARY_DIR}/pbrt_soa.h)
 
+if(PBRT_WITH_PATH_GUIDING)
+add_custom_command (OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/wavefront_workitems_soa.h
+    COMMAND soac ${PBRT_SOURCE_CODE}/src/pbrt/wavefront/workitems_guiding.soa > ${CMAKE_CURRENT_BINARY_DIR}/wavefront_workitems_soa.h
+    DEPENDS soac ${PBRT_SOURCE_CODE}/src/pbrt/wavefront/workitems_guiding.soa)
+set (PBRT_SOA_GENERATED ${PBRT_SOA_GENERATED} ${CMAKE_CURRENT_BINARY_DIR}/wavefront_workitems_soa.h)
+else()
 add_custom_command (OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/wavefront_workitems_soa.h
     COMMAND soac ${PBRT_SOURCE_CODE}/src/pbrt/wavefront/workitems.soa > ${CMAKE_CURRENT_BINARY_DIR}/wavefront_workitems_soa.h
     DEPENDS soac ${PBRT_SOURCE_CODE}/src/pbrt/wavefront/workitems.soa)
 set (PBRT_SOA_GENERATED ${PBRT_SOA_GENERATED} ${CMAKE_CURRENT_BINARY_DIR}/wavefront_workitems_soa.h)
-
+endif()
 add_custom_target (pbrt_soa_generated DEPENDS ${PBRT_SOA_GENERATED})
 
 set_property (TARGET soac PROPERTY FOLDER "cmd")

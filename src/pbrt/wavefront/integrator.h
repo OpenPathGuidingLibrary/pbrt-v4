@@ -23,6 +23,10 @@
 #include <pbrt/wavefront/workitems.h>
 #include <pbrt/wavefront/workqueue.h>
 
+#if defined(PBRT_WITH_PATH_GUIDING)
+    #include <openpgl/cpp/OpenPGL.h>
+#endif // PBRT_WITH_PATH_GUIDING
+
 namespace pbrt {
 
 class BasicScene;
@@ -43,11 +47,21 @@ class WavefrontAggregate {
                                   MaterialEvalQueue *universalMtlQ,
                                   MediumSampleQueue *mediumSampleQ,
                                   RayQueue *nextRayQ) const = 0;
+#if defined(PBRT_WITH_PATH_GUIDING)
+    virtual void IntersectShadow(int maxRays, ShadowRayQueue *shadowRayQueue,
+                                 SOA<PixelSampleState> *pixelSampleState,
+                                 PathSegmentStorageBuffer *pathSegmentStorageBuffer) const = 0;
 
+    virtual void IntersectShadowTr(int maxRays, ShadowRayQueue *shadowRayQueue,
+                                   SOA<PixelSampleState> *pixelSampleState, 
+                                   PathSegmentStorageBuffer *pathSegmentStorageBuffer) const = 0;
+#else
     virtual void IntersectShadow(int maxRays, ShadowRayQueue *shadowRayQueue,
                                  SOA<PixelSampleState> *pixelSampleState) const = 0;
+    
     virtual void IntersectShadowTr(int maxRays, ShadowRayQueue *shadowRayQueue,
                                    SOA<PixelSampleState> *pixelSampleState) const = 0;
+#endif
 
     virtual void IntersectOneRandom(
         int maxRays, SubsurfaceScatterQueue *subsurfaceScatterQueue) const = 0;
@@ -66,6 +80,10 @@ class WavefrontPathIntegrator {
     void GenerateRaySamples(int wavefrontDepth, int sampleIndex);
     template <typename Sampler>
     void GenerateRaySamples(int wavefrontDepth, int sampleIndex);
+
+#if defined(PBRT_WITH_PATH_GUIDING)
+    void ResetPathSegmentStorage();
+#endif
 
     void TraceShadowRays(int wavefrontDepth);
     void SampleMediumInteraction(int wavefrontDepth);
@@ -95,7 +113,7 @@ class WavefrontPathIntegrator {
             GPUParallelFor(description, nItems, func);
 #else
             LOG_FATAL("Options->useGPU was set without PBRT_BUILD_GPU_RENDERER enabled");
-#endif
+#endif // PBRT_BUILD_GPU_RENDERER
         else
             pbrt::ParallelFor(0, nItems, func);
     }
@@ -107,7 +125,7 @@ class WavefrontPathIntegrator {
             GPUParallelFor(description, 1, [=] PBRT_GPU(int) mutable { func(); });
 #else
             LOG_FATAL("Options->useGPU was set without PBRT_BUILD_GPU_RENDERER enabled");
-#endif
+#endif // PBRT_BUILD_GPU_RENDERER
         else
             func();
     }
@@ -187,6 +205,21 @@ class WavefrontPathIntegrator {
     RGB *displayRGB = nullptr, *displayRGBHost = nullptr;
     std::atomic<bool> *exitCopyThread;
     std::thread *copyThread;
+#if defined(PBRT_WITH_PATH_GUIDING)
+    openpgl::cpp::Device* guiding_device = nullptr;
+    std::shared_ptr<openpgl::cpp::Field> guiding_field;
+    openpgl::cpp::FieldConfig* guiding_fieldConfig;
+
+    PathSegmentStorageBuffer pathSegmentStorageBuffer;
+    SampleDataStorageBuffer sampleDataStorageBuffer;
+    openpgl::cpp::SampleStorage guiding_sampleStorage;
+
+    openpgl::gpu::Device* guiding_deviceGPU = nullptr;
+
+    bool enableGuiding {false};
+    bool guideSurface {true};
+    bool guideVolume {true};
+#endif // PBRT_WITH_PATH_GUIDING
 };
 
 }  // namespace pbrt

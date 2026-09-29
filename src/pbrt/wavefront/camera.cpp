@@ -11,7 +11,9 @@
 #include <pbrt/util/spectrum.h>
 #include <pbrt/util/vecmath.h>
 #include <pbrt/wavefront/integrator.h>
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+#include <pbrt/wavefront/guiding.h>
+#endif
 namespace pbrt {
 
 // WavefrontPathIntegrator Camera Ray Methods
@@ -69,7 +71,16 @@ void WavefrontPathIntegrator::GenerateCameraRays(int y0, Transform movingFromCam
             pixelSampleState.filterWeight[pixelIndex] = cameraSample.filterWeight;
             if (initializeVisibleSurface)
                 pixelSampleState.visibleSurface[pixelIndex] = VisibleSurface();
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+            pixelSampleState.rr_correction[pixelIndex] = 1.f;
+#if !defined(PBRT_BUILD_GPU_RENDERER)
+            if(sampleIndex == 0)
+            {
+                pixelSampleState.ssd[pixelIndex] = new openpgl::cpp::SurfaceSamplingDistribution(this->guiding_field.get());
+                pixelSampleState.vsd[pixelIndex] = new openpgl::cpp::VolumeSamplingDistribution(this->guiding_field.get());
+            }
+#endif
+#endif
             // Enqueue camera ray for intersection tests
             if (cameraRay) {
                 rayQueue->PushCameraRay(cameraRay->ray, lambda, pixelIndex);

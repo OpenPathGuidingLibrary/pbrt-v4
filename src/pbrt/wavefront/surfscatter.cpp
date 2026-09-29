@@ -16,7 +16,9 @@
 #include <pbrt/util/spectrum.h>
 #include <pbrt/util/vecmath.h>
 #include <pbrt/wavefront/integrator.h>
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+#include <pbrt/wavefront/guiding.h>
+#endif
 #include <type_traits>
 
 namespace pbrt {
@@ -178,12 +180,22 @@ void WavefrontPathIntegrator::EvaluateMaterialAndBSDF(MaterialEvalQueue *evalQue
                 pixelSampleState.visibleSurface[w.pixelIndex] =
                     VisibleSurface(isect, albedo, lambda);
             }
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+            GuidedBSDFWF::SurfaceSamplingDistribution* ssd = (GuidedBSDFWF::SurfaceSamplingDistribution*) pixelSampleState.ssd[w.pixelIndex];
+            GuidedBSDFWF gbsdf(bsdf, ssd);
+            Float sample1D = -1.f; 
+            gbsdf.Init(this->guiding_field.get(), Point3f(w.pi), sample1D, this->enableGuiding && this->guideSurface);
+#endif
             // Sample BSDF and enqueue indirect ray at intersection point
             Vector3f wo = w.wo;
             RaySamples raySamples = pixelSampleState.samples[w.pixelIndex];
+#if defined(PBRT_WITH_PATH_GUIDING)
+            pstd::optional<BSDFSample> bsdfSample = gbsdf.Sample_f<ConcreteBxDF>(
+                wo, raySamples.indirect.uc, raySamples.indirect.u);
+#else
             pstd::optional<BSDFSample> bsdfSample = bsdf.Sample_f<ConcreteBxDF>(
                 wo, raySamples.indirect.uc, raySamples.indirect.u);
+#endif
             if (bsdfSample) {
                 // Compute updated path throughput and PDFs and enqueue indirect ray
                 Vector3f wi = bsdfSample->wi;
@@ -197,11 +209,15 @@ void WavefrontPathIntegrator::EvaluateMaterialAndBSDF(MaterialEvalQueue *evalQue
                          bsdfSample->f[0] * AbsDot(wi, ns) / bsdfSample->pdf);
 
                 // Update _r_u_ based on BSDF sample PDF
+#if defined(PBRT_WITH_PATH_GUIDING)
+                pixelSampleState.rr_correction[w.pixelIndex] *= bsdfSample->pdf / bsdfSample->bsdfPdf;
+                r_l = r_u / bsdfSample->misPdf;
+#else
                 if (bsdfSample->pdfIsProportional)
                     r_l = r_u / bsdf.PDF<ConcreteBxDF>(wo, bsdfSample->wi);
                 else
                     r_l = r_u / bsdfSample->pdf;
-
+#endif
                 // Update _etaScale_ accounting for BSDF scattering
                 Float etaScale = w.etaScale;
                 if (bsdfSample->IsTransmission())
@@ -212,14 +228,26 @@ void WavefrontPathIntegrator::EvaluateMaterialAndBSDF(MaterialEvalQueue *evalQue
                 SampledSpectrum rrBeta = beta * etaScale / r_u.Average();
                 // Note: depth >= 1 here to match VolPathIntegrator (which increments
                 // depth earlier).
+                Float q = 1.f;
+#if defined(PBRT_WITH_PATH_GUIDING)
+                if (rrBeta.MaxComponentValue() * pixelSampleState.rr_correction[w.pixelIndex] < 1 && w.depth >= 1) {
+                    q = std::max<Float>(0, 1 - (rrBeta.MaxComponentValue() * pixelSampleState.rr_correction[w.pixelIndex]));
+#else
                 if (rrBeta.MaxComponentValue() < 1 && w.depth >= 1) {
-                    Float q = std::max<Float>(0, 1 - rrBeta.MaxComponentValue());
+                    q = std::max<Float>(0, 1 - rrBeta.MaxComponentValue());
+#endif
                     if (raySamples.indirect.rr < q) {
                         beta = SampledSpectrum(0.f);
                         PBRT_DBG("Path terminated with RR\n");
                     } else
                         beta /= 1 - q;
                 }
+
+#if defined(PBRT_WITH_PATH_GUIDING)
+                BxDFFlags flags = gbsdf.Flags();
+                Vector3f scatteringWeight = Vector3f(bsdfSample->f[0], bsdfSample->f[1], bsdfSample->f[2]);
+                pathSegmentStorageBuffer.AddSurfaceSample(w.pixelIndex, Point3f(w.pi), ns, bsdfSample->wi, bsdfSample->pdf, wo, scatteringWeight, IsSpecular(flags), bsdfSample->sampledRoughness, bsdfSample->eta, q);
+#endif
 
                 if (beta) {
                     // Initialize spawned ray and enqueue for next ray depth
@@ -268,10 +296,18 @@ void WavefrontPathIntegrator::EvaluateMaterialAndBSDF(MaterialEvalQueue *evalQue
 #endif
                     }
                 }
+            } else {
+#if defined(PBRT_WITH_PATH_GUIDING)
+                pathSegmentStorageBuffer.AddZeroValueSurfaceSample(w.pixelIndex, Point3f(w.pi));
+#endif
             }
 
             // Sample light and enqueue shadow ray at intersection point
+#if defined(PBRT_WITH_PATH_GUIDING)
+            BxDFFlags flags = gbsdf.Flags();
+#else
             BxDFFlags flags = bsdf.Flags();
+#endif
             if (IsNonSpecular(flags)) {
                 // Choose a light source using the _LightSampler_
                 LightSampleContext ctx(w.pi, w.n, ns);
@@ -291,7 +327,11 @@ void WavefrontPathIntegrator::EvaluateMaterialAndBSDF(MaterialEvalQueue *evalQue
                 if (!ls || !ls->L || ls->pdf == 0)
                     return;
                 Vector3f wi = ls->wi;
+#if defined(PBRT_WITH_PATH_GUIDING)
+                SampledSpectrum f = gbsdf.f<ConcreteBxDF>(wo, wi);
+#else
                 SampledSpectrum f = bsdf.f<ConcreteBxDF>(wo, wi);
+#endif
                 if (!f)
                     return;
 
@@ -322,7 +362,11 @@ void WavefrontPathIntegrator::EvaluateMaterialAndBSDF(MaterialEvalQueue *evalQue
                 // This causes r_u to be zero for the shadow ray, so that
                 // part of MIS just becomes a no-op.
                 Float bsdfPDF =
+#if defined(PBRT_WITH_PATH_GUIDING)
+                    IsDeltaLight(light.Type()) ? 0.f : gbsdf.PDF<ConcreteBxDF>(wo, wi);
+#else
                     IsDeltaLight(light.Type()) ? 0.f : bsdf.PDF<ConcreteBxDF>(wo, wi);
+#endif
                 SampledSpectrum r_u = w.r_u * bsdfPDF;
                 SampledSpectrum r_l = w.r_u * lightPDF;
 
