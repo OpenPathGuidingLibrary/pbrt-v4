@@ -12,6 +12,7 @@
 namespace pbrt {
 
 PBRTOptions *Options;
+PBRTRendererOptions *RendererOptions;
 
 #if defined(PBRT_BUILD_GPU_RENDERER)
 __constant__ BasicPBRTOptions OptionsGPU;
@@ -19,6 +20,14 @@ __constant__ BasicPBRTOptions OptionsGPU;
 void CopyOptionsToGPU() {
     CUDA_CHECK(cudaMemcpyToSymbol(OptionsGPU, Options, sizeof(OptionsGPU)));
 }
+
+__constant__ PBRTRendererOptions RendererOptionsGPU;
+
+void CopyRendererOptionsToGPU() {
+    RendererOptions->update = false;
+    CUDA_CHECK(cudaMemcpyToSymbol(RendererOptionsGPU, RendererOptions, sizeof(RendererOptionsGPU)));
+}
+
 #endif
 
 std::string ToString(const RenderingCoordinateSystem &r) {
