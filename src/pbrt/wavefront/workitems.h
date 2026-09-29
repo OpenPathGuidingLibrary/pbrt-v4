@@ -16,8 +16,15 @@
 #include <pbrt/util/pstd.h>
 #include <pbrt/util/soa.h>
 #include <pbrt/wavefront/workqueue.h>
+#if defined(PBRT_WITH_PATH_GUIDING)
+#include <pbrt/wavefront/guiding.h>
+#endif
 
 namespace pbrt {
+#if defined(PBRT_WITH_PATH_GUIDING)
+    using SurfaceSamplingDistributionData = openpgl::cpp::SurfaceSamplingDistribution*;
+    using VolumeSamplingDistributionData = openpgl::cpp::VolumeSamplingDistribution*;
+#endif
 
 // RaySamples Definition
 struct RaySamples {
@@ -113,6 +120,11 @@ struct PixelSampleState {
     VisibleSurface visibleSurface;
     SampledSpectrum cameraRayWeight;
     RaySamples samples;
+#if defined(PBRT_WITH_PATH_GUIDING)
+    Float rr_correction;
+    SurfaceSamplingDistributionData ssd;
+    VolumeSamplingDistributionData vsd;
+#endif
 };
 
 // RayWorkItem Definition

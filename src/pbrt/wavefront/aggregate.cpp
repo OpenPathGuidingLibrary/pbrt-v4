@@ -56,24 +56,42 @@ void CPUAggregate::IntersectClosest(int maxRays, const RayQueue *rayQueue,
                 hitAreaLightQueue, basicEvalMaterialQueue, universalEvalMaterialQueue);
     });
 }
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+void CPUAggregate::IntersectShadow(int maxRays, ShadowRayQueue *shadowRayQueue,
+                                   SOA<PixelSampleState> *pixelSampleState,
+                                   PathSegmentStorageBuffer *pathSegmentStorageBuffer) const {
+#else
 void CPUAggregate::IntersectShadow(int maxRays, ShadowRayQueue *shadowRayQueue,
                                    SOA<PixelSampleState> *pixelSampleState) const {
+#endif
     // Intersect shadow rays from _shadowRayQueue_ in parallel
     ParallelFor(0, shadowRayQueue->Size(), [=](int index) {
         const ShadowRayWorkItem w = (*shadowRayQueue)[index];
         bool hit = aggregate.IntersectP(w.ray, w.tMax);
+#if defined(PBRT_WITH_PATH_GUIDING)
+        RecordShadowRayResult(w, pixelSampleState, pathSegmentStorageBuffer, hit);
+#else
         RecordShadowRayResult(w, pixelSampleState, hit);
+#endif
     });
 }
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+void CPUAggregate::IntersectShadowTr(int maxRays, ShadowRayQueue *shadowRayQueue,
+                                     SOA<PixelSampleState> *pixelSampleState,
+                                     PathSegmentStorageBuffer *pathSegmentStorageBuffer) const {
+#else
 void CPUAggregate::IntersectShadowTr(int maxRays, ShadowRayQueue *shadowRayQueue,
                                      SOA<PixelSampleState> *pixelSampleState) const {
+#endif
     ParallelFor(0, shadowRayQueue->Size(), [=](int index) {
         const ShadowRayWorkItem w = (*shadowRayQueue)[index];
         pstd::optional<ShapeIntersection> si;
         TraceTransmittance(
-            w, pixelSampleState,
+#if defined(PBRT_WITH_PATH_GUIDING)
+            w, pixelSampleState, pathSegmentStorageBuffer, 
+#else
+            w, pixelSampleState, 
+#endif
             [&](Ray ray, Float tMax) -> TransmittanceTraceResult {
                 si = aggregate.Intersect(ray, tMax);
 

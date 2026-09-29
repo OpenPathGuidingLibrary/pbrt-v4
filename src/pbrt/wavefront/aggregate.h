@@ -40,11 +40,21 @@ class CPUAggregate : public WavefrontAggregate {
                           MediumSampleQueue *mediumSampleQueue,
                           RayQueue *nextRayQueue) const;
 
+#if defined(PBRT_WITH_PATH_GUIDING)
+    void IntersectShadow(int maxRays, ShadowRayQueue *shadowRayQueue,
+                         SOA<PixelSampleState> *pixelSampleState,
+                         PathSegmentStorageBuffer *pathSegmentStorageBuffer) const;
+    
+    void IntersectShadowTr(int maxRays, ShadowRayQueue *shadowRayQueue,
+                           SOA<PixelSampleState> *pixelSampleState,
+                           PathSegmentStorageBuffer *pathSegmentStorageBuffer) const;
+#else
     void IntersectShadow(int maxRays, ShadowRayQueue *shadowRayQueue,
                          SOA<PixelSampleState> *pixelSampleState) const;
-
+    
     void IntersectShadowTr(int maxRays, ShadowRayQueue *shadowRayQueue,
                            SOA<PixelSampleState> *pixelSampleState) const;
+#endif
 
     void IntersectOneRandom(int maxRays,
                             SubsurfaceScatterQueue *subsurfaceScatterQueue) const;

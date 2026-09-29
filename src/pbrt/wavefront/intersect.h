@@ -27,10 +27,16 @@ inline PBRT_CPU_GPU void EnqueueWorkAfterMiss(RayWorkItem r,
         escapedRayQueue->Push(r);
     }
 }
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+inline PBRT_CPU_GPU void RecordShadowRayResult(const ShadowRayWorkItem w,
+                                               SOA<PixelSampleState> *pixelSampleState,
+                                               PathSegmentStorageBuffer *pathSegmentStorageBuffer,
+                                               bool foundIntersection) {
+#else
 inline PBRT_CPU_GPU void RecordShadowRayResult(const ShadowRayWorkItem w,
                                                SOA<PixelSampleState> *pixelSampleState,
                                                bool foundIntersection) {
+#endif
     if (foundIntersection) {
         PBRT_DBG("Shadow ray was occluded\n");
         return;
@@ -40,6 +46,11 @@ inline PBRT_CPU_GPU void RecordShadowRayResult(const ShadowRayWorkItem w,
              "(sr.Ld %f %f %f %f r_u %f %f %f %f r_l %f %f %f %f)\n",
              Ld[0], Ld[1], Ld[2], Ld[3], w.Ld[0], w.Ld[1], w.Ld[2], w.Ld[3], w.r_u[0],
              w.r_u[1], w.r_u[2], w.r_u[3], w.r_l[0], w.r_l[1], w.r_l[2], w.r_l[3]);
+
+#if defined(PBRT_WITH_PATH_GUIDING)  
+    Vector3f scatteredContribution;
+    pathSegmentStorageBuffer->AddScatteredContribution(w.pixelIndex, scatteredContribution);
+#endif
 
     SampledSpectrum Lpixel = pixelSampleState->L[w.pixelIndex];
     pixelSampleState->L[w.pixelIndex] = Lpixel + Ld;
@@ -161,10 +172,18 @@ struct TransmittanceTraceResult {
     Material material;
 };
 
+#if defined(PBRT_WITH_PATH_GUIDING)
+template <typename T, typename S>
+inline PBRT_CPU_GPU void TraceTransmittance(ShadowRayWorkItem sr,
+                                            SOA<PixelSampleState> *pixelSampleState,
+                                            PathSegmentStorageBuffer *pathSegmentStorageBuffer,
+                                            T trace, S spawnTo) {
+#else
 template <typename T, typename S>
 inline PBRT_CPU_GPU void TraceTransmittance(ShadowRayWorkItem sr,
                                             SOA<PixelSampleState> *pixelSampleState,
                                             T trace, S spawnTo) {
+#endif
     SampledWavelengths lambda = sr.lambda;
 
     SampledSpectrum Ld = sr.Ld;
@@ -285,6 +304,10 @@ inline PBRT_CPU_GPU void TraceTransmittance(ShadowRayWorkItem sr,
         // FIXME/reconcile: this takes r_l as input while
         // e.g. VolPathIntegrator::SampleLd() does not...
         Ld *= T_ray / (sr.r_u * r_u + sr.r_l * r_l).Average();
+#if defined(PBRT_WITH_PATH_GUIDING)    
+        Vector3f scatteredContribution;
+        pathSegmentStorageBuffer->AddScatteredContribution(sr.pixelIndex, scatteredContribution);
+#endif
 #if !defined(PBRT_RGB_RENDERING)
         PBRT_DBG("Setting final Ld for shadow ray pixel index %d = as %f %f %f %f\n",
                  sr.pixelIndex, Ld[0], Ld[1], Ld[2], Ld[3]);
