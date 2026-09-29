@@ -202,6 +202,11 @@ include (CheckLanguage)
 
 check_language(CUDA)
 
+#find_package(OpenMP)
+#message("OpenMP_C_FLAGS = ${OpenMP_C_FLAGS}")
+#message("OpenMP_CXX_FLAGS = ${OpenMP_CXX_FLAGS}")
+#message("CMAKE_EXE_LINKER_FLAGS = ${CMAKE_EXE_LINKER_FLAGS}")
+
 if (CMAKE_CUDA_COMPILER)
   if (CUDA_VERSION_MAJOR LESS 11)
     message (WARNING "pbrt-v4 requires CUDA version 11.0 or later but version ${CUDA_VERSION_MAJOR}.${CUDA_VERSION_MINOR}\
@@ -265,7 +270,7 @@ of CUDA installed, please update your PATH.")
         )
 
         # Willie hears yeh..
-        string (APPEND CMAKE_CUDA_FLAGS " -Xnvlink -suppress-stack-size-warning")
+        string (APPEND CMAKE_CUDA_FLAGS " -Xnvlink -suppress-stack-size-warning -Xcompiler -fopenmp")
 
         target_compile_options (
             cuda_build_configuration
@@ -373,8 +378,16 @@ of CUDA installed, please update your PATH.")
           endif ()
           target_include_directories ("${lib_name}" PRIVATE src ${CMAKE_BINARY_DIR})
           target_include_directories ("${lib_name}" SYSTEM PRIVATE ${NANOVDB_INCLUDE})
+          if(PBRT_WITH_PATH_GUIDING)
+            message(STATUS "OPENPGL_INCLUDE_DIR = ${OPENPGL_INCLUDE_DIR}")
+            target_include_directories ("${lib_name}" SYSTEM PRIVATE ${OPENPGL_INCLUDE_DIR})
+            target_compile_definitions ("${lib_name}" PRIVATE OPENPGL_GPU_CUDA_SUPPORT)
+          endif()
           target_link_libraries ("${lib_name}" PRIVATE cuda_build_configuration pbrt_opt pbrt_warnings)
           add_dependencies ("${lib_name}" pbrt_soa_generated)
+          if(PBRT_WITH_PATH_GUIDING)
+            add_dependencies("${lib_name}" OpenPGL)
+          endif()
           set (c_var_name ${output_var})
           set (embedded_file ${cuda_file}.ptx_embedded.c)
           add_custom_command (
@@ -925,6 +938,9 @@ endif()
 
 if (PBRT_CUDA_ENABLED AND PBRT_OPTIX7_PATH)
     target_include_directories (pbrt_lib SYSTEM PUBLIC ${PBRT_OPTIX7_PATH}/include)
+    if(PBRT_WITH_PATH_GUIDING)
+      target_compile_definitions (pbrt_lib PRIVATE OPENPGL_GPU_CUDA_SUPPORT)
+    endif()
 endif ()
 
 target_compile_options (pbrt_lib PUBLIC ${PBRT_CXX_FLAGS})

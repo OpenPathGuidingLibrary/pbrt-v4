@@ -43,6 +43,15 @@
 namespace pbrt {
 #if defined(PBRT_WITH_PATH_GUIDING)
 PBRTGuidingOptions *GuidingOptions;
+
+#if defined(PBRT_BUILD_GPU_RENDERER)
+__constant__ PBRTGuidingOptions GuidingOptionsGPU;
+
+void CopyGuidingOptionsToGPU() {
+    GuidingOptions->update = false;
+    CUDA_CHECK(cudaMemcpyToSymbol(GuidingOptionsGPU, GuidingOptions, sizeof(GuidingOptionsGPU)));
+}
+#endif
 #endif
 STAT_MEMORY_COUNTER("Memory/Wavefront integrator pixel state", pathIntegratorBytes);
 
@@ -216,8 +225,17 @@ WavefrontPathIntegrator::WavefrontPathIntegrator(
 
 #if defined(PBRT_WITH_PATH_GUIDING)
     guiding_device = new openpgl::cpp::Device(PGL_DEVICE_TYPE_CPU_4);
+#ifdef PBRT_BUILD_GPU_RENDERER
+    if (Options->useGPU) {
+        std::cout << "CUDA Device"<< std::endl;
+        guiding_deviceGPU = new openpgl::gpu::Device(openpgl::gpu::Device::EDeviceType_CUDA);
+    } else {
+        std::cout << "CPU Device"<< std::endl;
+        guiding_deviceGPU = new openpgl::gpu::Device(openpgl::gpu::Device::EDeviceType_CPU);
+    }
+#else
     guiding_deviceGPU = new openpgl::gpu::Device(openpgl::gpu::Device::EDeviceType_CPU);
-
+#endif
     GuidingOptions->enableGuiding = scene.integrator.parameters.GetOneBool("enableguiding", true);
     GuidingOptions->guideSurface = scene.integrator.parameters.GetOneBool("surfaceguiding", true);
     GuidingOptions->guideVolume = scene.integrator.parameters.GetOneBool("volumeguiding", true);
@@ -247,7 +265,18 @@ WavefrontPathIntegrator::WavefrontPathIntegrator(
         guiding_field = std::shared_ptr<openpgl::cpp::Field>(new openpgl::cpp::Field(guiding_device, *guiding_fieldConfig));
         //enableGuiding = false;
     }
-	GuidingOptions->guidingField = guiding_field;
+#ifdef PBRT_BUILD_GPU_RENDERER
+#ifdef PBRT_IS_GPU_CODE
+    std::cout << "Preparing GPU guiding field"<< std::endl;
+    #define OPENPGLGPU openpgl::gpu::cuda
+#else
+    std::cout << "Preparing CPU guiding field"<< std::endl;
+    #define OPENPGLGPU openpgl::gpu::cpu
+#endif
+    GuidingOptions->guidingField = OPENPGLGPU::FieldGPU(guiding_deviceGPU, guiding_field.get());
+#else
+    GuidingOptions->guidingField = guiding_field;
+#endif
 #endif
 
     // Warn about unsupported stuff...
@@ -501,13 +530,22 @@ Float WavefrontPathIntegrator::Render() {
                     SampleSubsurface(wavefrontDepth);
                 }
 #if defined(PBRT_WITH_PATH_GUIDING)
+#if defined(PBRT_BUILD_GPU_RENDERER)
+                CUDA_CHECK(cudaDeviceSynchronize());
+#endif
 #if defined(PBRT_WITH_PATH_GUIDING_PRINT_LOGS)
                 std::cout << std::endl << "GPU Render: time(sec) = " << gpuRenderTimer.ElapsedSeconds() << std::endl;
 #endif         
                 Timer timerPSD;
                 pathSegmentStorageBuffer.PrepareSampleData(sampleDataStorageBuffer);
+#if defined(PBRT_BUILD_GPU_RENDERER)
+                CUDA_CHECK(cudaDeviceSynchronize());
+#endif
 #if defined(PBRT_WITH_PATH_GUIDING_PRINT_LOGS)
                 std::cout << std::endl << "PrepareSampleData: time(sec) = " << timerPSD.ElapsedSeconds() << std::endl;
+#endif
+#if defined(PBRT_BUILD_GPU_RENDERER)
+                CUDA_CHECK(cudaDeviceSynchronize());
 #endif
                 sampleDataStorageBuffer.CollectSampleData(guiding_sampleStorage); 
 #if defined(PBRT_WITH_PATH_GUIDING_PRINT_LOGS)
@@ -532,13 +570,20 @@ Float WavefrontPathIntegrator::Render() {
                 std::cout << std::endl << "Guiding Update Field: time(sec) = " << guidingUpdate.ElapsedSeconds() << std::endl;
 #endif
                 Timer guidingPrepare;
-		GuidingOptions->guidingField = guiding_field;
+#if defined(PBRT_BUILD_GPU_RENDERER)
+                GuidingOptions->guidingField = OPENPGLGPU::FieldGPU(guiding_deviceGPU, guiding_field.get());
+#else
+                GuidingOptions->guidingField = guiding_field;
+#endif
 #if defined(PBRT_WITH_PATH_GUIDING_PRINT_LOGS)
                 std::cout << std::endl << "Guiding Prepare Field: time(sec) = " << guidingPrepare.ElapsedSeconds() << std::endl;
 #endif
                 if (Options->useGPU) {
 #if defined(PBRT_WITH_PATH_GUIDING)
                      Timer guidingUpload;
+#if defined(PBRT_BUILD_GPU_RENDERER)
+                    CopyGuidingOptionsToGPU();
+#endif
 #if defined(PBRT_WITH_PATH_GUIDING_PRINT_LOGS)
                     std::cout << std::endl << "Guiding Upload Field: time(sec) = " << guidingUpload.ElapsedSeconds() << std::endl;
 #endif
@@ -579,6 +624,11 @@ Float WavefrontPathIntegrator::Render() {
                         Allocator alloc = Allocator(memoryResource);
                         stats = alloc.new_object<Stats>(RendererOptions->maxDepth, alloc);
                     }
+#if defined(PBRT_WITH_PATH_GUIDING)
+                    if(GuidingOptions->update){
+                        CopyGuidingOptionsToGPU();
+                    }
+#endif
                 }
 #endif  // PBRT_BUILD_GPU_RENDERER
                 sampleIndex = firstSampleIndex - 1;

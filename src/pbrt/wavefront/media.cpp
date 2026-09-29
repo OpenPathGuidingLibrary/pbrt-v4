@@ -305,10 +305,18 @@ void WavefrontPathIntegrator::SampleMediumScattering(int wavefrontDepth) {
             RaySamples raySamples = pixelSampleState.samples[w.pixelIndex];
             Vector3f wo = w.wo;
 #if defined(PBRT_WITH_PATH_GUIDING)
+#if defined(PBRT_BUILD_GPU_RENDERER)
+            typename GuidedPhaseFunctionWF<ConcretePhaseFunction>::VolumeSamplingDistribution* vsd = (typename GuidedPhaseFunctionWF<ConcretePhaseFunction>::VolumeSamplingDistribution*) &pixelSampleState.vsd[w.pixelIndex];
+#else
             typename GuidedPhaseFunctionWF<ConcretePhaseFunction>::VolumeSamplingDistribution* vsd = (typename GuidedPhaseFunctionWF<ConcretePhaseFunction>::VolumeSamplingDistribution*) pixelSampleState.vsd[w.pixelIndex];
+#endif
             GuidedPhaseFunctionWF<ConcretePhaseFunction> gphase(w.phase, vsd);
             Float sample1D = -1.f; 
+#if defined(PBRT_BUILD_GPU_RENDERER)
+            gphase.Init(&GetGuidingOptions().guidingField, w.p, sample1D, GetGuidingOptions().enableGuiding && GetGuidingOptions().guideVolume);
+#else
             gphase.Init(GetGuidingOptions().guidingField.get(), w.p, sample1D, GetGuidingOptions().enableGuiding && GetGuidingOptions().guideVolume);
+#endif
 #endif
             // Sample direct lighting at medium scattering event.  First,
             // choose a light source.

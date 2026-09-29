@@ -26,6 +26,10 @@
 #if defined(PBRT_WITH_PATH_GUIDING)
     #include <pbrt/wavefront/guidingoptions.h>
     #include <openpgl/cpp/OpenPGL.h>
+#if defined(PBRT_BUILD_GPU_RENDERER)
+    #include <openpgl/gpu/Device.h>
+    #include <openpgl/gpu/OpenPGLGPU.h>
+#endif // PBRT_BUILD_GPU_RENDERER
 #endif // PBRT_WITH_PATH_GUIDING
 
 namespace pbrt {
