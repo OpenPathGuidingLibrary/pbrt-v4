@@ -257,8 +257,11 @@ extern "C" __global__ void __raygen__shadow() {
 
     uint32_t missed = 0;
     Trace(params.traversable, sr.ray, sr.tMax, OPTIX_RAY_FLAG_NONE, missed);
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+    RecordShadowRayResult(sr, &params.pixelSampleState, params.pathSegmentStorageBuffer, !missed);
+#else
     RecordShadowRayResult(sr, &params.pixelSampleState, !missed);
+#endif
 }
 
 extern "C" __global__ void __miss__shadow() {
@@ -274,8 +277,11 @@ extern "C" __global__ void __raygen__shadow_Tr() {
     ShadowRayWorkItem sr = (*params.shadowRayQueue)[index];
 
     ClosestHitContext ctx;
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+    TraceTransmittance(sr, &params.pixelSampleState, params.pathSegmentStorageBuffer,
+#else
     TraceTransmittance(sr, &params.pixelSampleState,
+#endif
                        [&](Ray ray, Float tMax) -> TransmittanceTraceResult {
                            ctx = ClosestHitContext(ray.medium, true);
                            uint32_t p0 = packPointer0(&ctx), p1 = packPointer1(&ctx);

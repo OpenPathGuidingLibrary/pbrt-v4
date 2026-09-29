@@ -62,7 +62,9 @@ struct RayIntersectParameters {
     // shadow rays
     ShadowRayQueue *shadowRayQueue;
     SOA<PixelSampleState> pixelSampleState;
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+    PathSegmentStorageBuffer *pathSegmentStorageBuffer;
+#endif
     // Subsurface scattering...
     SubsurfaceScatterQueue *subsurfaceScatterQueue;
 };

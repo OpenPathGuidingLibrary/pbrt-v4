@@ -1736,8 +1736,14 @@ void OptiXAggregate::IntersectClosest(int maxRays, const RayQueue *rayQueue,
     cudaEventRecord(events.second);
 };
 
+#if defined(PBRT_WITH_PATH_GUIDING)
+void OptiXAggregate::IntersectShadow(int maxRays, ShadowRayQueue *shadowRayQueue,
+                                     SOA<PixelSampleState> *pixelSampleState,
+                                     PathSegmentStorageBuffer *pathSegmentStorageBuffer) const {
+#else
 void OptiXAggregate::IntersectShadow(int maxRays, ShadowRayQueue *shadowRayQueue,
                                      SOA<PixelSampleState> *pixelSampleState) const {
+#endif
     std::pair<cudaEvent_t, cudaEvent_t> events = GetProfilerEvents("Trace shadow rays");
 
     cudaEventRecord(events.first);
@@ -1747,6 +1753,9 @@ void OptiXAggregate::IntersectShadow(int maxRays, ShadowRayQueue *shadowRayQueue
         params.traversable = rootTraversable;
         params.shadowRayQueue = shadowRayQueue;
         params.pixelSampleState = *pixelSampleState;
+#if defined(PBRT_WITH_PATH_GUIDING)
+        params.pathSegmentStorageBuffer = pathSegmentStorageBuffer;
+#endif
 
         ParamBufferState &pbs = getParamBuffer(params);
 
@@ -1773,9 +1782,14 @@ void OptiXAggregate::IntersectShadow(int maxRays, ShadowRayQueue *shadowRayQueue
 
     cudaEventRecord(events.second);
 }
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+void OptiXAggregate::IntersectShadowTr(int maxRays, ShadowRayQueue *shadowRayQueue,
+                                       SOA<PixelSampleState> *pixelSampleState,
+                                       PathSegmentStorageBuffer *pathSegmentStorageBuffer) const {
+#else
 void OptiXAggregate::IntersectShadowTr(int maxRays, ShadowRayQueue *shadowRayQueue,
                                        SOA<PixelSampleState> *pixelSampleState) const {
+#endif
     std::pair<cudaEvent_t, cudaEvent_t> events =
         GetProfilerEvents("Tracing shadow Tr rays");
 
@@ -1786,7 +1800,9 @@ void OptiXAggregate::IntersectShadowTr(int maxRays, ShadowRayQueue *shadowRayQue
         params.traversable = rootTraversable;
         params.shadowRayQueue = shadowRayQueue;
         params.pixelSampleState = *pixelSampleState;
-
+#if defined(PBRT_WITH_PATH_GUIDING)
+        params.pathSegmentStorageBuffer = pathSegmentStorageBuffer;
+#endif
         ParamBufferState &pbs = getParamBuffer(params);
 
 #ifndef NDEBUG

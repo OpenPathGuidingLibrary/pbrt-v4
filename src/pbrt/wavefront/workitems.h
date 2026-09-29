@@ -22,8 +22,13 @@
 
 namespace pbrt {
 #if defined(PBRT_WITH_PATH_GUIDING)
+#ifdef PBRT_BUILD_GPU_RENDERER
+    using SurfaceSamplingDistributionData = openpgl::gpu::SurfaceSamplingDistributionData;
+    using VolumeSamplingDistributionData = openpgl::gpu::VolumeSamplingDistributionData;
+#else
     using SurfaceSamplingDistributionData = openpgl::cpp::SurfaceSamplingDistribution*;
     using VolumeSamplingDistributionData = openpgl::cpp::VolumeSamplingDistribution*;
+#endif
 #endif
 
 // RaySamples Definition

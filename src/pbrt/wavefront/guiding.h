@@ -4,8 +4,12 @@
 #ifndef PBRT_WAVEFRONT_GUIDING_H
 #define PBRT_WAVEFRONT_GUIDING_H
 
+#ifdef PBRT_BUILD_GPU_RENDERER
+#include <openpgl/gpu/OpenPGLGPU.h>
+#else
 #include <openpgl/cpp/OpenPGL.h>
 #include <openpgl/gpu/OpenPGLGPU.h>
+#endif
 
 #include <pbrt/util/soa.h>
 #include <pbrt/util/progressreporter.h>
@@ -15,8 +19,18 @@
 namespace pbrt {
 
 struct GuidedBSDFWF{
+#ifdef PBRT_BUILD_GPU_RENDERER
+#if defined(PBRT_IS_GPU_CODE)
+    using SurfaceSamplingDistribution = openpgl::gpu::cuda::SurfaceSamplingDistribution;
+    using Field = openpgl::gpu::cuda::FieldGPU;
+#else
+    using SurfaceSamplingDistribution = openpgl::gpu::cpu::SurfaceSamplingDistribution;
+    using Field = openpgl::gpu::cpu::FieldGPU;
+#endif
+#else
     using SurfaceSamplingDistribution = openpgl::cpp::SurfaceSamplingDistribution;
     using Field = openpgl::cpp::Field;
+#endif
 
     PBRT_CPU_GPU
     GuidedBSDFWF(const BSDF& bsdf, SurfaceSamplingDistribution* ssd): m_bsdf(bsdf), m_ssd(ssd) {
@@ -129,9 +143,18 @@ struct GuidedBSDFWF{
 
 template<class ConcretePhaseFunction>
 struct GuidedPhaseFunctionWF{
+#ifdef PBRT_BUILD_GPU_RENDERER
+#if defined(PBRT_IS_GPU_CODE)
+    using VolumeSamplingDistribution = openpgl::gpu::cuda::VolumeSamplingDistribution;
+    using Field = openpgl::gpu::cuda::FieldGPU;
+#else
+    using VolumeSamplingDistribution = openpgl::gpu::cpu::VolumeSamplingDistribution;
+    using Field = openpgl::gpu::cpu::FieldGPU;
+#endif
+#else
     using VolumeSamplingDistribution = openpgl::cpp::VolumeSamplingDistribution;
     using Field = openpgl::cpp::Field;
-
+#endif
     PBRT_CPU_GPU
     GuidedPhaseFunctionWF(const ConcretePhaseFunction* phase, VolumeSamplingDistribution* vsd): m_phase(phase), m_vsd(vsd) {}
 
@@ -230,10 +253,29 @@ struct GuidedPhaseFunctionWF{
 };
 
 #if defined(PBRT_WITH_PATH_GUIDING)
+#if defined(PBRT_BUILD_GPU_RENDERER)
+    using PathSegment = openpgl::gpu::cuda::PathSegment;
+    using SampleData = openpgl::gpu::cuda::SampleData;
+    using ZeroValueSampleData = openpgl::gpu::cuda::ZeroValueSampleData;
+#else 
     using PathSegment = openpgl::gpu::cpu::PathSegment;
     using SampleData = openpgl::gpu::cpu::SampleData;
     using ZeroValueSampleData = openpgl::gpu::cpu::ZeroValueSampleData;
+#endif
 
+#if defined(PBRT_BUILD_GPU_RENDERER)
+struct PathSegmentStorageBuffer: public openpgl::gpu::cuda::PathSegmentStorageBuffer {
+    using Vector3 = openpgl::gpu::cuda::Vector3;
+    using Point3 = openpgl::gpu::cuda::Point3;
+    using Normal3 = openpgl::gpu::cuda::Normal3;
+    
+    PathSegmentStorageBuffer(): openpgl::gpu::cuda::PathSegmentStorageBuffer() {}
+
+    PathSegmentStorageBuffer(int n, openpgl::gpu::Device *device): openpgl::gpu::cuda::PathSegmentStorageBuffer(n, device) {}
+
+    PathSegmentStorageBuffer(std::string fileName, openpgl::gpu::Device *device): openpgl::gpu::cuda::PathSegmentStorageBuffer(fileName, device) {}
+
+#else
 struct PathSegmentStorageBuffer: public openpgl::gpu::cpu::PathSegmentStorageBuffer {
     using Vector3 = openpgl::gpu::cpu::Vector3;
     using Point3 = openpgl::gpu::cpu::Point3;
@@ -244,6 +286,8 @@ struct PathSegmentStorageBuffer: public openpgl::gpu::cpu::PathSegmentStorageBuf
     PathSegmentStorageBuffer(int n, openpgl::gpu::Device *device): openpgl::gpu::cpu::PathSegmentStorageBuffer(n, device) {}
 
     PathSegmentStorageBuffer(std::string fileName, openpgl::gpu::Device *device): openpgl::gpu::cpu::PathSegmentStorageBuffer(fileName, device) {}
+
+#endif
 
     PBRT_CPU_GPU
     void AddSurfaceSample(const int pixelIndex, const Point3f& pos, const Normal3f& normal, const Vector3f& directionIn, const Float& pdfDirectionIn, const Vector3f& directionOut, const Vector3f& scatteringWeight, const bool isDelta, const Float roughness, const Float eta, const Float q) {
@@ -323,6 +367,15 @@ struct PathSegmentStorageBuffer: public openpgl::gpu::cpu::PathSegmentStorageBuf
     }
 };   
 
+#if defined(PBRT_BUILD_GPU_RENDERER)
+struct SampleDataStorageBuffer: public openpgl::gpu::cuda::SampleDataStorageBuffer {
+    SampleDataStorageBuffer(): openpgl::gpu::cuda::SampleDataStorageBuffer() {}
+
+    SampleDataStorageBuffer(int n, openpgl::gpu::Device *device): openpgl::gpu::cuda::SampleDataStorageBuffer(n, device) {}
+
+    SampleDataStorageBuffer(std::string fileName, openpgl::gpu::Device *device): openpgl::gpu::cuda::SampleDataStorageBuffer(fileName, device) {}
+};
+#else
 struct SampleDataStorageBuffer: public openpgl::gpu::cpu::SampleDataStorageBuffer {
     SampleDataStorageBuffer(): openpgl::gpu::cpu::SampleDataStorageBuffer() {}
 
@@ -330,6 +383,7 @@ struct SampleDataStorageBuffer: public openpgl::gpu::cpu::SampleDataStorageBuffe
 
     SampleDataStorageBuffer(std::string fileName, openpgl::gpu::Device *device): openpgl::gpu::cpu::SampleDataStorageBuffer(fileName, device) {}
 };
+#endif
 
 #endif
 }
