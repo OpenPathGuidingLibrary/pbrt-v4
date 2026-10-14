@@ -4164,7 +4164,7 @@ std::unique_ptr<GuidedPathIntegrator> GuidedPathIntegrator::Create(
     settings.guideSurface = parameters.GetOneBool("surfaceguiding", true);
     settings.guideRR = parameters.GetOneBool("rrguiding", false);
 
-    settings.trainingSamples = parameters.GetOneInt("trainingSamples", 128);
+    settings.guideNumTrainingWaves = parameters.GetOneInt("trainingSamples", 128);
 
     std::string strGuidingDistributionType = parameters.GetOneString("distribution", "PAVMM");
     if(strGuidingDistributionType == "PAVMM") {
@@ -4219,7 +4219,11 @@ GuidedVolPathIntegrator::GuidedVolPathIntegrator(int maxDepth, int minRRDepth, b
         std::cout<< "\t regularize = " << regularize << std::endl;
     
         guiding_device = new openpgl::cpp::Device(PGL_DEVICE_TYPE_CPU_4);
-        guiding_fieldConfig.Init(PGL_SPATIAL_STRUCTURE_KDTREE, PGL_DIRECTIONAL_DISTRIBUTION_PARALLAX_AWARE_VMM);
+        if (guideSettings.distributionType == EGuideDistributionPAVMM) {
+            guiding_fieldConfig.Init(PGL_SPATIAL_STRUCTURE_KDTREE, PGL_DIRECTIONAL_DISTRIBUTION_PARALLAX_AWARE_VMM);
+        } else if(guideSettings.distributionType == EGuideDistributionDQT) {
+            guiding_fieldConfig.Init(PGL_SPATIAL_STRUCTURE_KDTREE, PGL_DIRECTIONAL_DISTRIBUTION_QUADTREE);
+        }
 
         if (guideSettings.loadGuidingCache) {
             if(FileExists(guideSettings.guidingCacheFileName)) {
@@ -4998,6 +5002,15 @@ std::unique_ptr<GuidedVolPathIntegrator> GuidedVolPathIntegrator::Create(
     settings.guideRR = parameters.GetOneBool("rrguiding", false);
     settings.guideSurfaceRR = parameters.GetOneBool("surfacerrguiding", true);
     settings.guideVolumeRR = parameters.GetOneBool("volumerrguiding", true);
+
+    settings.guideNumTrainingWaves = parameters.GetOneInt("trainingSamples", 128);
+
+    std::string strGuidingDistributionType = parameters.GetOneString("distribution", "PAVMM");
+    if(strGuidingDistributionType == "PAVMM") {
+        settings.distributionType = EGuideDistributionPAVMM;
+    } else if (strGuidingDistributionType == "DQT") {
+        settings.distributionType = EGuideDistributionDQT;
+    }
 
     settings.enableGuiding = settings.guideSurface || settings.guideVolume;
     std::string strSurfaceGuidingType = parameters.GetOneString("surfaceguidingtype", "ris");
