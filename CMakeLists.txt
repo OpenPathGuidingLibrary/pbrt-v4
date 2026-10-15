@@ -1008,6 +1008,11 @@ target_include_directories (pbrt_exe PRIVATE src src/ext)
 target_link_libraries (pbrt_exe PRIVATE ${ALL_PBRT_LIBS} pbrt_opt pbrt_warnings)
 
 set_target_properties (pbrt_exe PROPERTIES OUTPUT_NAME pbrt)
+set_target_properties(
+    pbrt_exe
+    PROPERTIES 
+    INSTALL_RPATH 
+    "${CMAKE_INSTALL_RPATH};${CMAKE_INSTALL_PREFIX}/lib")  
 
 add_sanitizers (pbrt_exe)
 
