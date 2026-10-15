@@ -273,6 +273,8 @@ class GuidedPathIntegrator : public RayIntegrator {
         std::string contributionEstimateFileName {""};
 
         Float regularizationGamma {0.1f};
+
+        bool logStatistics{false};
     };
 
   public:
@@ -327,6 +329,7 @@ class GuidedPathIntegrator : public RayIntegrator {
     openpgl::cpp::Field* guiding_field {nullptr};
     openpgl::cpp::Device* guiding_device {nullptr};
     //ThreadLocal<Allocator> threadPathSegmentStorage;
+    std::vector<std::string> guiding_surface_stats;
 #if defined(GUIDED_RR)
     openpgl::cpp::util::ImageSpaceGuidingBuffer* imageSpaceGuidingBuffer;
 
@@ -426,6 +429,8 @@ class GuidedVolPathIntegrator : public RayIntegrator {
         std::string contributionEstimateFileName {""};
 
         Float regularizationGamma {0.f};
+
+        bool logStatistics{false};
     };
   public:
     // VolPathIntegrator Public Methods
@@ -477,7 +482,9 @@ class GuidedVolPathIntegrator : public RayIntegrator {
     openpgl::cpp::SampleStorage* guiding_sampleStorage {nullptr};
     openpgl::cpp::Field* guiding_field {nullptr};
     openpgl::cpp::Device* guiding_device {nullptr};
-
+    std::vector<std::string> guiding_surface_stats;
+    std::vector<std::string> guiding_volume_stats;
+    
 #if defined(GUIDED_RR)
     openpgl::cpp::util::ImageSpaceGuidingBuffer* imageSpaceGuidingBuffer;
 

@@ -3848,6 +3848,9 @@ GuidedPathIntegrator::~GuidedPathIntegrator() {
         imageSpaceGuidingBuffer->Store(guideSettings.contributionEstimateFileName);
         imageSpaceGuidingBuffer->Reset();
     }
+    if(guideSettings.logStatistics && guiding_surface_stats.size() > 0) {
+        store_guiding_statistics_to_file(guiding_surface_stats, camera.GetFilm().GetFilename(), false);
+    }
 #endif
     delete guiding_device;
     delete guiding_sampleStorage;
@@ -3872,6 +3875,12 @@ void GuidedPathIntegrator::PostProcessWave() {
                 guideTraining = false;
             }
             guiding_sampleStorage->Clear();
+        }
+        if(guideSettings.logStatistics) {
+            if(guiding_field->GetIteration() == 1) {
+                guiding_surface_stats.push_back(guiding_field->GetSurfaceStatistics().HeaderCSVString());
+            }
+            guiding_surface_stats.push_back(guiding_field->GetSurfaceStatistics().ToCSVString());
         }
     }
     guiding_sampleStorage->Clear();
@@ -4221,6 +4230,8 @@ std::unique_ptr<GuidedPathIntegrator> GuidedPathIntegrator::Create(
     settings.loadContributionEstimate = parameters.GetOneBool("loadContributionEstimate", false);
     settings.contributionEstimateFileName = parameters.GetOneString("contributionEstimateFileName", "");
 
+    settings.logStatistics = parameters.GetOneBool("logstatistics", false);
+
     std::string lightStrategy = parameters.GetOneString("lightsampler", "bvh");
     bool regularize = parameters.GetOneBool("regularize", false);
     settings.regularizationGamma = parameters.GetOneFloat("regGamma", 0.1f);
@@ -4320,6 +4331,14 @@ GuidedVolPathIntegrator::~GuidedVolPathIntegrator() {
         std::cout << "GuidedVolPathIntegrator storing guiding cache = " << guideSettings.guidingCacheFileName << std::endl;
         guiding_field->Store(guideSettings.guidingCacheFileName);
     }
+
+    if(guideSettings.logStatistics && guiding_surface_stats.size() > 0) {
+        store_guiding_statistics_to_file(guiding_surface_stats, camera.GetFilm().GetFilename(), false);
+    }
+
+    if(guideSettings.logStatistics && guiding_volume_stats.size() > 0) {
+        store_guiding_statistics_to_file(guiding_volume_stats, camera.GetFilm().GetFilename(), true);
+    }
 #if defined(GUIDED_RR)
     if(guideSettings.storeContributionEstimate){
         imageSpaceGuidingBuffer->Store(guideSettings.contributionEstimateFileName);
@@ -4349,6 +4368,13 @@ void GuidedVolPathIntegrator::PostProcessWave() {
                 guideTraining = false;
             }
             guiding_sampleStorage->Clear();
+        }
+        if(guideSettings.logStatistics) {
+            if(guiding_field->GetIteration()) {
+                guiding_surface_stats.push_back(guiding_field->GetSurfaceStatistics().HeaderCSVString()); 
+            }
+            guiding_surface_stats.push_back(guiding_field->GetSurfaceStatistics().ToCSVString());
+            guiding_volume_stats.push_back(guiding_field->GetVolumeStatistics().ToCSVString());
         }
     }
 
@@ -5075,6 +5101,8 @@ std::unique_ptr<GuidedVolPathIntegrator> GuidedVolPathIntegrator::Create(
     settings.storeContributionEstimate = parameters.GetOneBool("storeContributionEstimate", false);
     settings.loadContributionEstimate = parameters.GetOneBool("loadContributionEstimate", false);
     settings.contributionEstimateFileName = parameters.GetOneString("contributionEstimateFileName", "");
+
+    settings.logStatistics = parameters.GetOneBool("logstatistics", false);
 
     std::string lightStrategy = parameters.GetOneString("lightsampler", "bvh");
     bool regularize = parameters.GetOneBool("regularize", false);
