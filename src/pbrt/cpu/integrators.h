@@ -258,6 +258,8 @@ class GuidedPathIntegrator : public RayIntegrator {
         bool storeGuidingCache {false};
         bool loadGuidingCache {false};
         std::string guidingCacheFileName {""};
+
+        bool logStatistics{false};
     };
 
   public:
@@ -310,6 +312,8 @@ class GuidedPathIntegrator : public RayIntegrator {
     openpgl::cpp::Field* guiding_field;
     openpgl::cpp::Device* guiding_device;
     //ThreadLocal<Allocator> threadPathSegmentStorage;
+
+    std::vector<std::string> guiding_surface_stats;
 };
 #endif
 
@@ -388,6 +392,8 @@ class GuidedVolPathIntegrator : public RayIntegrator {
         bool storeGuidingCache {false};
         bool loadGuidingCache {false};
         std::string guidingCacheFileName {""};
+
+        bool logStatistics{false};
     };
   public:
     // VolPathIntegrator Public Methods
@@ -437,6 +443,9 @@ class GuidedVolPathIntegrator : public RayIntegrator {
     openpgl::cpp::SampleStorage* guiding_sampleStorage;
     openpgl::cpp::Field* guiding_field;
     openpgl::cpp::Device* guiding_device;
+
+    std::vector<std::string> guiding_surface_stats;
+    std::vector<std::string> guiding_volume_stats;
 };
 #endif
 

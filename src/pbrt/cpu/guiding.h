@@ -14,10 +14,31 @@
 #endif
 #include <math.h>
 #include <iostream>
+#include <fstream>
+#include <filesystem>
 
 //#define GUIDING_SPECTRAL_TO_VEC3_USE_RGB
 
 namespace pbrt {
+
+inline void store_guiding_statistics_to_file(std::vector<std::string> guiding_stats, std::string outputImageFileName, bool volume){
+    std::filesystem::path outputImageFilePAth = outputImageFileName;
+    std::string outputImageFileExtension = outputImageFilePAth.extension().string();
+    std::string csvFileName = outputImageFileName;
+    
+    if(!volume) {
+        csvFileName.replace(csvFileName.length()-outputImageFileExtension.length(), outputImageFileExtension.length(), "-surface.csv");
+    } else {
+        csvFileName.replace(csvFileName.length()-outputImageFileExtension.length(), outputImageFileExtension.length(), "-volume.csv");
+    }
+
+    std::ofstream csvFile;
+    csvFile.open(csvFileName);
+    for (int i = 0; i < guiding_stats.size(); i++) {
+            csvFile << guiding_stats[i] << std::endl;
+    }
+    csvFile.close();
+}
 
 inline Vector3f spectral_to_vec3(const SampledSpectrum& spec, const SampledWavelengths &lambda, const RGBColorSpace &colorSpace){
 
