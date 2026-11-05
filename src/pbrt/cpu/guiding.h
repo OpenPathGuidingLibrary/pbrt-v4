@@ -8,6 +8,7 @@
 #include <pbrt/denoiser.h>
 #include <pbrt/interaction.h>
 #include <pbrt/util/parallel.h>
+#include <openpgl/version.h>
 #include <openpgl/cpp/OpenPGL.h>
 
 #if defined(_MSC_VER)

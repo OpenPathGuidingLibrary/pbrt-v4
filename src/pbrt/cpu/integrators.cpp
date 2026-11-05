@@ -3911,7 +3911,11 @@ SampledSpectrum GuidedPathIntegrator::Li(Point2i pPixel, RayDifferential ray, Sa
     bool guideRR = false;
 #if defined(GUIDED_RR)
     if (guideSettings.guideRR && imageSpaceGuidingBufferReady) {
+#if OPENPGL_VERSION_MINOR <= 7
         openpgl::cpp::Vector3f pgPixelContributionEstimate = imageSpaceGuidingBuffer->GetPixelContributionEstimate(openpgl::cpp::Point2i(pPixel[0], pPixel[1]));
+#else
+        openpgl::cpp::Vector3f pgPixelContributionEstimate = imageSpaceGuidingBuffer->GetContributionEstimate(openpgl::cpp::Point2i(pPixel[0], pPixel[1]));
+#endif
         pixelContributionEstimate[0] = pgPixelContributionEstimate.x;
         pixelContributionEstimate[1] = pgPixelContributionEstimate.y;
         pixelContributionEstimate[2] = pgPixelContributionEstimate.z;
@@ -4410,7 +4414,11 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
     const bool guideVolumeRR = guideSettings.guideVolumeRR;
 #if defined(GUIDED_RR)
     if (guideSettings.guideRR && imageSpaceGuidingBufferReady) {
+#if OPENPGL_VERSION_MINOR <= 7
         openpgl::cpp::Vector3f pgPixelContributionEstimate = imageSpaceGuidingBuffer->GetPixelContributionEstimate(openpgl::cpp::Point2i(pPixel[0], pPixel[1]));
+#else
+        openpgl::cpp::Vector3f pgPixelContributionEstimate = imageSpaceGuidingBuffer->GetContributionEstimate(openpgl::cpp::Point2i(pPixel[0], pPixel[1]));
+#endif
         pixelContributionEstimate[0] = pgPixelContributionEstimate.x;
         pixelContributionEstimate[1] = pgPixelContributionEstimate.y;
         pixelContributionEstimate[2] = pgPixelContributionEstimate.z;
