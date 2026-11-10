@@ -364,7 +364,7 @@ void WavefrontPathIntegrator::SampleMediumScattering(int wavefrontDepth) {
             // due to the way scattering events are scattered and because we're
             // sampling exactly from the phase function's distribution...
             SampledSpectrum rrBeta = beta * w.etaScale / r_u.Average();
-            if (rrBeta.MaxComponentValue() < 1 && w.depth >= 1) {
+            if (rrBeta.MaxComponentValue() < 1 && w.depth >= minrrDepth) {
                 Float q = std::max<Float>(0, 1 - rrBeta.MaxComponentValue());
                 if (raySamples.indirect.rr < q) {
                     PBRT_DBG("RR terminated medium indirect with q %f pixel index %d\n",

@@ -195,6 +195,7 @@ WavefrontPathIntegrator::WavefrontPathIntegrator(
     // Integrator parameters
     regularize = scene.integrator.parameters.GetOneBool("regularize", false);
     maxDepth = scene.integrator.parameters.GetOneInt("maxdepth", 5);
+    minrrDepth = scene.integrator.parameters.GetOneInt("minrrdepth", 1);
 
     initializeVisibleSurface = film.UsesVisibleSurface();
     samplesPerPixel = sampler.SamplesPerPixel();

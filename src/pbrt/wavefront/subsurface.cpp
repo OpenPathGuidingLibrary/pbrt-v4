@@ -102,7 +102,7 @@ void WavefrontPathIntegrator::SampleSubsurface(int wavefrontDepth) {
 
                     // Russian roulette
                     SampledSpectrum rrBeta = beta * etaScale / indir_r_u.Average();
-                    if (rrBeta.MaxComponentValue() < 1 && w.depth > 1) {
+                    if (rrBeta.MaxComponentValue() < 1 && w.depth > minrrDepth) {
                         Float q = std::max<Float>(0, 1 - rrBeta.MaxComponentValue());
                         if (raySamples.indirect.rr < q) {
                             beta = SampledSpectrum(0.f);

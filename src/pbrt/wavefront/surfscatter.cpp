@@ -217,7 +217,7 @@ void WavefrontPathIntegrator::EvaluateMaterialAndBSDF(MaterialEvalQueue *evalQue
                 SampledSpectrum rrBeta = beta * etaScale / r_u.Average();
                 // Note: depth >= 1 here to match VolPathIntegrator (which increments
                 // depth earlier).
-                if (rrBeta.MaxComponentValue() < 1 && w.depth >= 1) {
+                if (rrBeta.MaxComponentValue() < 1 && w.depth >= minrrDepth) {
                     Float q = std::max<Float>(0, 1 - rrBeta.MaxComponentValue());
                     if (raySamples.indirect.rr < q) {
                         beta = SampledSpectrum(0.f);
