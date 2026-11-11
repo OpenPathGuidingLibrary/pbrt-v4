@@ -32,8 +32,27 @@ struct GuidedBSDFWF{
     using Field = openpgl::cpp::Field;
 #endif
 
+    enum GuidingType{
+        EGuideMIS = 0,
+        EGuideRIS
+    };
+
+    struct RISSample{
+        float bsdfPDF {0.f};
+        float guidingPDF {0.f};
+        float misPDF {0.f};
+        float incomingRadiancePDF {0.f};
+        SampledSpectrum f;
+        Vector3f wiRender;
+        float eta {1.0f};
+        float sampledRoughness{1.0f};
+        BxDFFlags flags;
+
+        float risWeight{0.f};
+    };
+
     PBRT_CPU_GPU
-    GuidedBSDFWF(const BSDF& bsdf, SurfaceSamplingDistribution* ssd): m_bsdf(bsdf), m_ssd(ssd) {
+    GuidedBSDFWF(const BSDF& bsdf, SurfaceSamplingDistribution* ssd, Point2f u, float v, GuidingType guidingType): m_bsdf(bsdf), m_ssd(ssd) , m_u(u), m_v(v), m_guidingType(guidingType){
     }
     
     PBRT_CPU_GPU
@@ -61,7 +80,7 @@ struct GuidedBSDFWF{
 
     template<class ConcreteBxDF>
     PBRT_CPU_GPU
-    pstd::optional<BSDFSample> Sample_f(Vector3f woRender, Float u, Point2f u2,
+    pstd::optional<BSDFSample> Sample_f_MIS(Vector3f woRender, Float u, Point2f u2,
         TransportMode mode = TransportMode::Radiance,
         BxDFReflTransFlags sampleFlags = BxDFReflTransFlags::All) const {
 
@@ -112,6 +131,113 @@ struct GuidedBSDFWF{
 
     template<class ConcreteBxDF>
     PBRT_CPU_GPU
+    pstd::optional<BSDFSample> Sample_f_RIS(
+        Vector3f woRender, Float u, Point2f u2,
+        TransportMode mode = TransportMode::Radiance,
+        BxDFReflTransFlags sampleFlags = BxDFReflTransFlags::All) const {
+        pstd::optional<BSDFSample> bs = {};
+        bool sampleBSDF = true;
+        if (!m_enableGuiding) {
+            return m_bsdf.Sample_f(woRender, u, u2, mode, sampleFlags);
+        }
+
+        const float uniformIncomingRadiancePDF = ((1.0f/(4.0f * M_PI))); 
+        RISSample risSamples[2];
+        // RIS0 - sample BSDF
+        pstd::optional<BSDFSample> bs0 = m_bsdf.Sample_f(woRender, u, u2, mode, sampleFlags);
+        if(bs0) {
+            risSamples[0].f = bs0->f;
+            risSamples[0].eta = bs0->eta;
+            risSamples[0].sampledRoughness = bs0->sampledRoughness;
+            risSamples[0].bsdfPDF = bs0->pdf;
+            risSamples[0].wiRender = bs0->wi;
+            pgl_vec3f pglwi0 = {bs0->wi[0], bs0->wi[1], bs0->wi[2]};
+            risSamples[0].guidingPDF = m_ssd->PDF(pglwi0);
+            risSamples[0].incomingRadiancePDF = m_ssd->IncomingRadiancePDF(pglwi0);
+            risSamples[0].flags = bs0->flags;
+            risSamples[0].misPDF = 0.5f * (risSamples[0].bsdfPDF + risSamples[0].guidingPDF);
+        }
+        // RIS1 - sample guiding
+        Point2f sample2D1 = m_u;
+        pgl_point2f pglSample1 = {sample2D1[0], sample2D1[1]};
+        pgl_vec3f pglwi1;
+        risSamples[1].guidingPDF = m_ssd->SamplePDF(pglSample1, pglwi1);
+        risSamples[1].incomingRadiancePDF = m_ssd->IncomingRadiancePDF(pglwi1);
+        Vector3f wiRender = Vector3f(pglwi1.x, pglwi1.y, pglwi1.z);
+        risSamples[1].f = m_bsdf.f(woRender, wiRender, mode);
+        risSamples[1].eta = m_bsdf.GetEta();
+        risSamples[1].sampledRoughness = m_bsdf.GetRoughness();
+        risSamples[1].bsdfPDF = m_bsdf.PDF(woRender, wiRender);
+        risSamples[1].wiRender = wiRender;
+        risSamples[1].flags = m_bsdf.Flags();
+        risSamples[1].misPDF = 0.5f * (risSamples[1].bsdfPDF + risSamples[1].guidingPDF);
+
+        // Calculating RIS weights
+        float sumWeightsRIS = 0.f;
+        int numSamplesRIS = 0;
+        if(risSamples[0].bsdfPDF > 0.f) {
+            risSamples[0].risWeight = (risSamples[0].bsdfPDF * ((1.0f - m_guidingProbability) * uniformIncomingRadiancePDF + m_guidingProbability * risSamples[0].incomingRadiancePDF));
+            risSamples[0].risWeight /= risSamples[0].misPDF;
+            sumWeightsRIS += risSamples[0].risWeight;
+            numSamplesRIS++;
+        }
+        
+        if(risSamples[1].bsdfPDF > 0.f) {
+            risSamples[1].risWeight = (risSamples[1].bsdfPDF * ((1.0f - m_guidingProbability) * uniformIncomingRadiancePDF + m_guidingProbability * risSamples[1].incomingRadiancePDF));
+            risSamples[1].risWeight /= risSamples[1].misPDF;
+            sumWeightsRIS += risSamples[1].risWeight;
+            numSamplesRIS++;
+        }
+
+        // Checking if there is any valid sample
+        if(numSamplesRIS == 0 || sumWeightsRIS <=0.f)
+        {
+            return bs;
+        }
+
+        // Selecting RIS sample
+        int idxRIS = 0;
+        float sample1DRIS = sumWeightsRIS * m_v;
+        float sumRis = 0.f;
+        for(int i = 0; i < 2; i++)
+        {
+            sumRis += risSamples[i].risWeight;
+            if(sample1DRIS < sumRis)
+            {
+                idxRIS = i;
+                break;
+            }
+        }
+        
+        // calculating pseudo/stochastic PDF for the selected sample
+        float pdf = (risSamples[idxRIS].risWeight * risSamples[idxRIS].misPDF) * (float(2)/ sumWeightsRIS);
+        
+        // PDF used for MIS with NEE (1 BSDF and 1 guiding sample)
+        float misPdf = risSamples[idxRIS].misPDF;
+        bs = BSDFSample(risSamples[idxRIS].f, risSamples[idxRIS].wiRender, pdf, risSamples[idxRIS].flags, risSamples[idxRIS].sampledRoughness, risSamples[idxRIS].eta, false);
+        bs->bsdfPdf = risSamples[idxRIS].bsdfPDF;
+        bs->misPdf = misPdf;
+        DCHECK_NE(bs->bsdfPdf, 0);
+        DCHECK_NE(bs->misPdf, 0);
+        return bs;
+    }
+
+    template<class ConcreteBxDF>
+    PBRT_CPU_GPU
+    pstd::optional<BSDFSample> Sample_f(
+        Vector3f woRender, Float u, Point2f u2,
+        TransportMode mode = TransportMode::Radiance,
+        BxDFReflTransFlags sampleFlags = BxDFReflTransFlags::All) const {
+
+        if(m_guidingType == EGuideMIS) {
+            return Sample_f_MIS<ConcreteBxDF>(woRender, u, u2, mode, sampleFlags);
+        } else { // RIS
+            return Sample_f_RIS<ConcreteBxDF>(woRender, u, u2, mode, sampleFlags);
+        }
+    }
+
+    template<class ConcreteBxDF>
+    PBRT_CPU_GPU
     Float PDF(Vector3f woRender, Vector3f wiRender, TransportMode mode = TransportMode::Radiance,
               BxDFReflTransFlags sampleFlags = BxDFReflTransFlags::All) const {
         float bsdfPDF = m_bsdf.PDF(woRender, wiRender); 
@@ -137,8 +263,11 @@ struct GuidedBSDFWF{
 
     const BSDF& m_bsdf;
     SurfaceSamplingDistribution* m_ssd {nullptr};
+    Point2f m_u;
+    float m_v;
     bool m_enableGuiding {false};
     float m_guidingProbability {0.5f};
+    GuidingType m_guidingType {EGuideRIS};
 };
 
 template<class ConcretePhaseFunction>
@@ -350,7 +479,7 @@ struct PathSegmentStorageBuffer: public openpgl::gpu::cpu::PathSegmentStorageBuf
     PBRT_CPU_GPU
     void AddDirectContribution(const int pixelIndex, const Vector3f& Le, const Float misWeight) {
         uint32_t depth = curDepth[pixelIndex];
-        if (depth < 10) {
+        if (depth > 0 && depth < 10) {
             uint32_t idx = depth -1;
             segments[idx].directContribution[pixelIndex] = Vector3(Le.x, Le.y, Le.z);
             segments[idx].miWeight[pixelIndex] = misWeight;
@@ -360,7 +489,7 @@ struct PathSegmentStorageBuffer: public openpgl::gpu::cpu::PathSegmentStorageBuf
     PBRT_CPU_GPU
     void AddScatteredContribution(const int pixelIndex, const Vector3f& scatteredContribution) {
         uint32_t depth = curDepth[pixelIndex];
-        if (depth < 10) {
+        if (depth > 0 && depth < 10) {
             uint32_t idx = depth -1;
             segments[idx].scatteredContribution[pixelIndex] += Vector3(scatteredContribution.x, scatteredContribution.y, scatteredContribution.z);
         }

@@ -220,6 +220,10 @@ WavefrontPathIntegrator::WavefrontPathIntegrator(
     RendererOptions->minRRDepth = scene.integrator.parameters.GetOneInt("minrrdepth", 5);
     RendererOptions->useNEE = scene.integrator.parameters.GetOneBool("usenee", true);
 
+    std::string strSurfaceGuidingType = scene.integrator.parameters.GetOneString("surfaceguidingtype", "ris");
+    surfaceGuidingType = strSurfaceGuidingType == "mis" ? GuidedBSDFWF::EGuideMIS : GuidedBSDFWF::EGuideRIS;
+
+
     initializeVisibleSurface = film.UsesVisibleSurface();
     samplesPerPixel = sampler.SamplesPerPixel();
 

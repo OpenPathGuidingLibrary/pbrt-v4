@@ -224,6 +224,7 @@ class WavefrontPathIntegrator {
     bool enableGuiding {false};
     bool guideSurface {true};
     bool guideVolume {true};
+    GuidedBSDFWF::GuidingType surfaceGuidingType {GuidedBSDFWF::EGuideMIS};
 #endif // PBRT_WITH_PATH_GUIDING
 };
 

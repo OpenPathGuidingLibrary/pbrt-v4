@@ -404,7 +404,7 @@ void WavefrontPathIntegrator::SampleMediumScattering(int wavefrontDepth) {
             if (rrBeta.MaxComponentValue() * pixelSampleState.rr_correction[w.pixelIndex] < 1 && w.depth >= GetRendererOptions().minRRDepth) {
                 Float q = std::max<Float>(0, 1 - (rrBeta.MaxComponentValue() * pixelSampleState.rr_correction[w.pixelIndex]));
 #else
-            if (rrBeta.MaxComponentValue() < 1 && w.depth >= /*GetRendererOptions().minRRDepth*/ 1) {
+            if (rrBeta.MaxComponentValue() < 1 && w.depth >= GetRendererOptions().minRRDepth) {
                 Float q = std::max<Float>(0, 1 - rrBeta.MaxComponentValue());
 #endif
                 if (raySamples.indirect.rr < q) {

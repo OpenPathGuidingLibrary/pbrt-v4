@@ -185,13 +185,14 @@ void WavefrontPathIntegrator::EvaluateMaterialAndBSDF(MaterialEvalQueue *evalQue
                 pixelSampleState.visibleSurface[w.pixelIndex] =
                     VisibleSurface(isect, albedo, lambda);
             }
+            RaySamples raySamples = pixelSampleState.samples[w.pixelIndex];
 #if defined(PBRT_WITH_PATH_GUIDING)
 #if defined(PBRT_BUILD_GPU_RENDERER) 
             GuidedBSDFWF::SurfaceSamplingDistribution* ssd = (GuidedBSDFWF::SurfaceSamplingDistribution*) &pixelSampleState.ssd[w.pixelIndex];
 #else
             GuidedBSDFWF::SurfaceSamplingDistribution* ssd = (GuidedBSDFWF::SurfaceSamplingDistribution*) pixelSampleState.ssd[w.pixelIndex];
 #endif
-            GuidedBSDFWF gbsdf(bsdf, ssd);
+            GuidedBSDFWF gbsdf(bsdf, ssd, raySamples.guiding.u, raySamples.guiding.uc, surfaceGuidingType);
             Float sample1D = -1.f; 
 #if defined(PBRT_BUILD_GPU_RENDERER)
             gbsdf.Init(&GetGuidingOptions().guidingField, Point3f(w.pi), sample1D, GetGuidingOptions().enableGuiding && GetGuidingOptions().guideSurface);
@@ -201,7 +202,6 @@ void WavefrontPathIntegrator::EvaluateMaterialAndBSDF(MaterialEvalQueue *evalQue
 #endif
             // Sample BSDF and enqueue indirect ray at intersection point
             Vector3f wo = w.wo;
-            RaySamples raySamples = pixelSampleState.samples[w.pixelIndex];
 #if defined(PBRT_WITH_PATH_GUIDING)
             pstd::optional<BSDFSample> bsdfSample = gbsdf.Sample_f<ConcreteBxDF>(
                 wo, raySamples.indirect.uc, raySamples.indirect.u);
