@@ -22,7 +22,7 @@ option (PBRT_DBG_LOGGING "Enable (very verbose!) debug logging" OFF)
 option (PBRT_NVTX "Insert NVTX annotations for NVIDIA Profiling and Debugging Tools" OFF)
 option (PBRT_NVML "Use NVML for GPU performance measurement" OFF)
 option (PBRT_USE_PREGENERATED_RGB_TO_SPECTRUM_TABLES "Use pregenerated rgbspectrum_*.cpp files rather than running rgb2spec_opt to generate them at build time" OFF)
-set (PBRT_OPTIX7_PATH $ENV{PBRT_OPTIX7_PATH} CACHE PATH "Path to OptiX 7 SDK")
+set (PBRT_OPTIX_PATH $ENV{PBRT_OPTIX_PATH} CACHE PATH "Path to OptiX SDK")
 set (PBRT_GPU_SHADER_MODEL "" CACHE STRING "")
 
 
@@ -66,15 +66,15 @@ endfunction ()
 check_ext ("OpenEXR" "openexr/src" f723c3940fff287c0a26b425b90a8e764823bfd4)
 check_ext ("OpenVDB" "openvdb/nanovdb" 414bed84c2fc22e188eac7b611aa85c7edd7a5a9)
 check_ext ("Ptex" "ptex/src" 054047d02b9e06e690420b407114d2872435b953)
-check_ext ("double-conversion" "double-conversion/cmake" cc1f75a114aca8d2af69f73a5a959aecbab0e87a)
+check_ext ("double-conversion" "double-conversion/cmake" 101e1ba89dc41ceb75090831da97c43a76cd2906)
 check_ext ("filesystem" "filesystem/filesystem" c5f9de30142453eb3c6fe991e82dfc2583373116)
 check_ext ("glfw" "glfw/docs" 7b6aead9fb88b3623e3b3725ebb42670cbe4c579)
 check_ext ("libdeflate" "libdeflate/common" 1fd0bea6ca2073c68493632dafc4b1ddda1bcbc3)
 check_ext ("lodepng" "lodepng/examples" 8c6a9e30576f07bf470ad6f09458a2dcd7a6a84a)
 check_ext ("qoi" "qoi" 028c75fd26e5e0758c7c711216c00404994c1ad3)
 check_ext ("stb" "stb/tools" af1a5bc352164740c1cc1354942b1c6b72eacb8a)
-check_ext ("utf8proc" "utf8proc/bench" 2484e2ed5e1d9c19edcccf392a7d9920ad90dfaf)
-check_ext ("zlib" "zlib/doc" 54d591eabf9fe0e84c725638f8d5d8d202a093fa)
+check_ext ("utf8proc" "utf8proc/bench" d7bf128df773c2a1a7242eb80e51e91a769fc985)
+check_ext ("zlib" "zlib/doc" 5a82f71ed1dfc0bec044d9702463dbdf84ea3b71)
 add_compile_definitions ("$<$<CONFIG:DEBUG>:PBRT_DEBUG_BUILD>")
 
 enable_testing ()
@@ -135,6 +135,8 @@ if (OPENEXR_FOUND)
   message (STATUS "Found OpenEXR version ${OPENEXR_VERSION}")
 else ()
   message (STATUS "OpenEXR not found; building it from scratch.")
+  set (OPENEXR_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+  set (OPENEXR_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
   add_subdirectory (src/ext/openexr)
   set_property (TARGET IlmThread Iex OpenEXR
                 PROPERTY FOLDER "ext/OpenEXR")
@@ -175,6 +177,7 @@ add_library (pbrt_warnings INTERFACE)
 target_compile_options (
     pbrt_warnings
     INTERFACE
+        "$<$<CXX_COMPILER_ID:MSVC>:$<$<COMPILE_LANGUAGE:CUDA>:SHELL:-Xcompiler >/Zc:preprocessor>"
         "$<$<CXX_COMPILER_ID:MSVC>:$<$<COMPILE_LANGUAGE:CUDA>:SHELL:-Xcompiler >/wd4244>" # int -> float conversion
         "$<$<CXX_COMPILER_ID:MSVC>:$<$<COMPILE_LANGUAGE:CUDA>:SHELL:-Xcompiler >/wd4267>" # size_t -> int conversion
         "$<$<CXX_COMPILER_ID:MSVC>:$<$<COMPILE_LANGUAGE:CUDA>:SHELL:-Xcompiler >/wd4305>" # double constant assigned to float
@@ -231,8 +234,8 @@ of CUDA installed, please update your PATH.")
       message (SEND_ERROR "Unfortunately, pbrt-v4 triggers an internal compiler error in CUDA 11.3.0. Please either use CUDA 11.0-11.2 or 11.3.1 or later.")
     endif ()
 
-    if ("${PBRT_OPTIX7_PATH}" STREQUAL "")
-        message (WARNING "Found CUDA but PBRT_OPTIX7_PATH is not set. Disabling GPU compilation.")
+    if ("${PBRT_OPTIX_PATH}" STREQUAL "")
+        message (WARNING "Found CUDA but PBRT_OPTIX_PATH is not set. Disabling GPU compilation.")
     else ()
         enable_language (CUDA)
         list (APPEND PBRT_DEFINITIONS "PBRT_BUILD_GPU_RENDERER")
@@ -266,6 +269,7 @@ of CUDA installed, please update your PATH.")
         target_compile_options (
             cuda_build_configuration
             INTERFACE
+                "$<$<CXX_COMPILER_ID:MSVC>:$<$<COMPILE_LANGUAGE:CUDA>:--forward-slash-prefix-opts>>"
                 "$<$<COMPILE_LANGUAGE:CUDA>:--std=c++17;--use_fast_math;--expt-relaxed-constexpr;--extended-lambda;--forward-unknown-to-host-compiler>"
                 # The "$<NOT:$<BOOL:$<TARGET_PROPERTY:CUDA_PTX_COMPILATION>>>" part is to not add debugging symbols when generating PTX files for OptiX; see https://github.com/mmp/pbrt-v4/issues/69#issuecomment-715499748.
                 "$<$<COMPILE_LANGUAGE:CUDA>:$<IF:$<AND:$<CONFIG:Debug>,$<NOT:$<BOOL:$<TARGET_PROPERTY:CUDA_PTX_COMPILATION>>>>,-G;-g,-lineinfo;-maxrregcount;128>>"
@@ -307,7 +311,7 @@ of CUDA installed, please update your PATH.")
         set (PBRT_CUDA_LIB cuda)
         # optix
         # FIXME
-        include_directories (${PBRT_OPTIX7_PATH}/include)
+        include_directories (${PBRT_OPTIX_PATH}/include)
 
         # find CUDA's bin2c executable
         get_filename_component (cuda_compiler_bin "${CMAKE_CUDA_COMPILER}" DIRECTORY)
@@ -685,6 +689,16 @@ SET (PBRT_UTIL_SOURCE
   src/pbrt/util/vecmath.cpp
 )
 
+# A warning about a deprecated function in C++17 but the solution will only be
+# in C++26.
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set_source_files_properties(
+        src/pbrt/util/string.cpp
+        PROPERTIES
+        COMPILE_FLAGS "-Wno-deprecated-declarations"
+    )
+endif()
+
 SET (PBRT_UTIL_SOURCE_HEADERS
   src/pbrt/util/args.h
   src/pbrt/util/bluenoise.h
@@ -732,6 +746,7 @@ if (PBRT_CUDA_ENABLED)
   set (PBRT_GPU_SOURCE
     src/pbrt/gpu/optix/aggregate.cpp
     src/pbrt/gpu/optix/denoiser.cpp
+    src/pbrt/gpu/optix/scaler.cpp
     src/pbrt/gpu/memory.cpp
     src/pbrt/gpu/util.cpp
   )
@@ -739,6 +754,7 @@ if (PBRT_CUDA_ENABLED)
     src/pbrt/gpu/optix/aggregate.h
     src/pbrt/gpu/cudagl.h
     src/pbrt/gpu/optix/denoiser.h
+    src/pbrt/gpu/optix/scaler.h
     src/pbrt/gpu/memory.h
     src/pbrt/gpu/optix/optix.h
     src/pbrt/gpu/util.h
@@ -913,8 +929,8 @@ if (PBRT_WITH_OIDN)
 endif()
 
 
-if (PBRT_CUDA_ENABLED AND PBRT_OPTIX7_PATH)
-    target_include_directories (pbrt_lib SYSTEM PUBLIC ${PBRT_OPTIX7_PATH}/include)
+if (PBRT_CUDA_ENABLED AND PBRT_OPTIX_PATH)
+    target_include_directories (pbrt_lib SYSTEM PUBLIC ${PBRT_OPTIX_PATH}/include)
 endif ()
 
 target_compile_options (pbrt_lib PUBLIC ${PBRT_CXX_FLAGS})

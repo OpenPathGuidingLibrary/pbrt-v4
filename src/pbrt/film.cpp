@@ -506,7 +506,7 @@ PBRT_CPU_GPU void RGBFilm::AddSplat(Point2f p, SampledSpectrum L, const SampledW
     RGB rgb = sensor->ToSensorRGB(L, lambda);
 
     // Optionally clamp sensor RGB value
-    Float m = std::max({rgb.r, rgb.g, rgb.b});
+    Float m = std::max(rgb.r, std::max(rgb.g, rgb.b));
     if (m > maxComponentValue)
         rgb *= maxComponentValue / m;
 
@@ -544,7 +544,7 @@ Image RGBFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
     ParallelFor2D(pixelBounds, [&](Point2i p) {
         RGB rgb = GetPixelRGB(p, splatScale);
 
-        if (writeFP16 && std::max({rgb.r, rgb.g, rgb.b}) > 65504) {
+        if (writeFP16 && std::max(rgb.r, std::max(rgb.g, rgb.b)) > 65504) {
             if (rgb.r > 65504)
                 rgb.r = 65504;
             if (rgb.g > 65504)
@@ -593,7 +593,7 @@ PBRT_CPU_GPU void GBufferFilm::AddSample(Point2i pFilm, SampledSpectrum L,
                             const SampledWavelengths &lambda,
                             const VisibleSurface *visibleSurface, Float weight) {
     RGB rgb = sensor->ToSensorRGB(L, lambda);
-    Float m = std::max({rgb.r, rgb.g, rgb.b});
+    Float m = std::max(rgb.r, std::max(rgb.g, rgb.b));
     if (m > maxComponentValue)
         rgb *= maxComponentValue / m;
 
@@ -669,7 +669,7 @@ PBRT_CPU_GPU void GBufferFilm::AddSplat(Point2f p, SampledSpectrum v,
     // NOTE: same code as RGBFilm::AddSplat()...
     CHECK(!v.HasNaNs());
     RGB rgb = sensor->ToSensorRGB(v, lambda);
-    Float m = std::max({rgb.r, rgb.g, rgb.b});
+    Float m = std::max(rgb.r, std::max(rgb.g, rgb.b));
     if (m > maxComponentValue)
         rgb *= maxComponentValue / m;
 
@@ -766,7 +766,7 @@ Image GBufferFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
 
         rgb = outputRGBFromSensorRGB * rgb;
 
-        if (writeFP16 && std::max({rgb.r, rgb.g, rgb.b}) > 65504) {
+        if (writeFP16 && std::max(rgb.r, std::max(rgb.g, rgb.b)) > 65504) {
             if (rgb.r > 65504)
                 rgb.r = 65504;
             if (rgb.g > 65504)
@@ -1136,7 +1136,7 @@ PBRT_CPU_GPU void SpectralFilm::AddSplat(Point2f p, SampledSpectrum L,
     RGB rgb = sensor->ToSensorRGB(L, lambda);
 
     // Optionally clamp sensor RGB value
-    Float m = std::max({rgb.r, rgb.g, rgb.b});
+    Float m = std::max(rgb.r, std::max(rgb.g, rgb.b));
     if (m > maxComponentValue)
         rgb *= maxComponentValue / m;
 

@@ -254,7 +254,7 @@ class RGBFilm : public FilmBase {
         RGB rgb = sensor->ToSensorRGB(L, lambda);
 
         // Optionally clamp sensor RGB value
-        Float m = std::max({rgb.r, rgb.g, rgb.b});
+        Float m = std::max(rgb.r, std::max(rgb.g, rgb.b));
         if (m > maxComponentValue)
             rgb *= maxComponentValue / m;
 
@@ -516,7 +516,7 @@ class SpectralFilm : public FilmBase {
         RGB rgb = sensor->ToSensorRGB(L, lambda);
 
         // Optionally clamp sensor RGB value
-        Float m = std::max({rgb.r, rgb.g, rgb.b});
+        Float m = std::max(rgb.r, std::max(rgb.g, rgb.b));
         if (m > maxComponentValue)
             rgb *= maxComponentValue / m;
 

@@ -266,8 +266,8 @@ PBRT_CPU_GPU RGB SampledSpectrum::ToRGB(const SampledWavelengths &lambda,
 }
 
 PBRT_CPU_GPU RGBAlbedoSpectrum::RGBAlbedoSpectrum(const RGBColorSpace &cs, RGB rgb) {
-    DCHECK_LE(std::max({rgb.r, rgb.g, rgb.b}), 1);
-    DCHECK_GE(std::min({rgb.r, rgb.g, rgb.b}), 0);
+    DCHECK_LE(std::max(rgb.r, std::max(rgb.g, rgb.b)), 1);
+    DCHECK_GE(std::min(rgb.r, std::min(rgb.g, rgb.b)), 0);
 #if !defined(PBRT_RGB_RENDERING)
     rsp = cs.ToRGBCoeffs(rgb);
 #else
@@ -283,7 +283,7 @@ PBRT_CPU_GPU RGBUnboundedSpectrum RGBAlbedoSpectrum::ToRGBUnbounded(const RGBCol
 
 PBRT_CPU_GPU RGBUnboundedSpectrum::RGBUnboundedSpectrum(const RGBColorSpace &cs, RGB rgb) {
 #if !defined(PBRT_RGB_RENDERING)
-    Float m = std::max({rgb.r, rgb.g, rgb.b});
+    Float m = std::max(rgb.r, std::max(rgb.g, rgb.b));
     scale = 2 * m;
     rsp = cs.ToRGBCoeffs(scale ? rgb / scale : RGB(0, 0, 0));
 #else
@@ -295,7 +295,7 @@ PBRT_CPU_GPU RGBIlluminantSpectrum::RGBIlluminantSpectrum(const RGBColorSpace &c
 #if !defined(PBRT_RGB_RENDERING)
     : illuminant(&cs.illuminant) {
 
-    Float m = std::max({rgb.r, rgb.g, rgb.b});
+    Float m = std::max(rgb.r, std::max(rgb.g, rgb.b));
     scale = 2 * m;
     rsp = cs.ToRGBCoeffs(scale ? rgb / scale : RGB(0, 0, 0));
 #else
@@ -485,7 +485,7 @@ const Float CIE_Y[nCIESamples] = {
     0.8620000,       0.8738108,       0.8849624,       0.8954936,       0.9054432,
     0.9148501,       0.9237348,       0.9320924,       0.9399226,       0.9472252,
     0.9540000,       0.9602561,       0.9660074,       0.9712606,       0.9760225,
-    0.9803000,       0.9840924,       0.9874812,       0.9903128,       0.9928116,
+    0.9803000,       0.9840924,       0.9874182,       0.9903128,       0.9928116,
     0.9949501,       0.9967108,       0.9980983,       0.9991120,       0.9997482,
     1.0000000,       0.9998567,       0.9993046,       0.9983255,       0.9968987,
     0.9950000,       0.9926005,       0.9897426,       0.9864444,       0.9827241,
