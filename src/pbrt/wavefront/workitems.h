@@ -42,6 +42,10 @@ struct RaySamples {
         Float uc, rr;
         Point2f u;
     } indirect;
+    struct {
+        Point2f u;
+        Float uc;
+    } guiding;
     bool haveSubsurface;
     struct {
         Float uc;
@@ -57,6 +61,7 @@ struct SOA<RaySamples> {
     SOA(int size, Allocator alloc) {
         direct = alloc.allocate_object<Float4>(size);
         indirect = alloc.allocate_object<Float4>(size);
+        guiding = alloc.allocate_object<Float4>(size);
         subsurface = alloc.allocate_object<Float4>(size);
         mediaDist = alloc.allocate_object<Float>(size);
         mediaMode = alloc.allocate_object<Float>(size);
@@ -75,6 +80,10 @@ struct SOA<RaySamples> {
         rs.indirect.uc = ind.v[0];
         rs.indirect.rr = ind.v[1];
         rs.indirect.u = Point2f(ind.v[2], ind.v[3]);
+
+        Float4 guid = Load4(guiding + i);
+        rs.guiding.u = Point2f(guid.v[0], guid.v[1]);
+        rs.guiding.uc = guid.v[2];
 
         if (rs.haveSubsurface) {
             Float4 ss = Load4(subsurface + i);
@@ -96,6 +105,8 @@ struct SOA<RaySamples> {
                 Float4{rs.direct.u[0], rs.direct.u[1], rs.direct.uc, Float(flags)};
             soa->indirect[index] = Float4{rs.indirect.uc, rs.indirect.rr,
                                           rs.indirect.u[0], rs.indirect.u[1]};
+            soa->guiding[index] = 
+                Float4{rs.guiding.u[0], rs.guiding.u[1], rs.guiding.uc, Float(flags)};
             if (rs.haveSubsurface)
                 soa->subsurface[index] =
                     Float4{rs.subsurface.uc, rs.subsurface.u.x, rs.subsurface.u.y, 0.f};
@@ -111,6 +122,7 @@ struct SOA<RaySamples> {
   private:
     Float4 *PBRT_RESTRICT direct;
     Float4 *PBRT_RESTRICT indirect;
+    Float4 *PBRT_RESTRICT guiding;
     Float4 *PBRT_RESTRICT subsurface;
     Float *PBRT_RESTRICT mediaDist, *PBRT_RESTRICT mediaMode;
 };
