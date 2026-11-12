@@ -221,6 +221,8 @@ class WavefrontPathIntegrator {
 
     openpgl::gpu::Device* guiding_deviceGPU = nullptr;
 
+    bool guiding_training {true};
+
     bool enableGuiding {false};
     bool guideSurface {true};
     bool guideVolume {true};

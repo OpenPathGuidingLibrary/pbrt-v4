@@ -254,6 +254,7 @@ WavefrontPathIntegrator::WavefrontPathIntegrator(
             std::cout << "GuidedVolPathIntegrator: loading guiding cache = " << guidingCacheFileName << std::endl;
             guiding_field = std::shared_ptr<openpgl::cpp::Field>(new openpgl::cpp::Field(guiding_device, guidingCacheFileName));
             cacheLoaded = true;
+            guiding_training = false;
             //guideTraining = false;
         } else {
             Warning(&scene.integrator.loc,
@@ -566,7 +567,7 @@ Float WavefrontPathIntegrator::Render() {
 
 #if defined(PBRT_WITH_PATH_GUIDING)
             // TODO: This should be packed/hidden inside OpenPGL
-            if(guiding_field) {
+            if(guiding_field && guiding_training) {
                 Timer guidingUpdate;
                 guiding_field->Update(guiding_sampleStorage);
 #if defined(PBRT_WITH_PATH_GUIDING_PRINT_LOGS)
