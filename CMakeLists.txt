@@ -126,6 +126,15 @@ if(PBRT_WITH_RGB)
   list (APPEND PBRT_DEFINITIONS "PBRT_RGB_RENDERING")
 endif()
 
+
+###########################################################################
+# Enable volume absorption events
+option(PBRT_VOLUME_ABSORPTION_EVENTS "Enable explicit volume absorption events." OFF)
+
+if(PBRT_VOLUME_ABSORPTION_EVENTS)
+  list (APPEND PBRT_DEFINITIONS "PBRT_VOLUME_ABSORPTION_EVENTS")
+endif()
+
 #######################################
 ## ext
 

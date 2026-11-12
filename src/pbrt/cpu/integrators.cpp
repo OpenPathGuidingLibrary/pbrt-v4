@@ -45,8 +45,6 @@
 
 #include <iostream>
 
-//#define VOLUME_ABSORB
-
 namespace pbrt {
 
 STAT_COUNTER("Integrator/Camera rays traced", nCameraRays);
@@ -2027,7 +2025,7 @@ int RandomWalk(const Integrator &integrator, SampledWavelengths &lambda,
                 [&](Point3f p, MediumProperties mp, SampledSpectrum sigma_maj,
                     SampledSpectrum T_maj) {
                     // Compute medium event probabilities for interaction
-#if defined(VOLUME_ABSORB)
+#if defined(PBRT_VOLUME_ABSORPTION_EVENTS)
                     Float pAbsorb = mp.sigma_a[lambda.ChannelIdx()] / sigma_maj[lambda.ChannelIdx()];
                     Float pScatter = mp.sigma_s[lambda.ChannelIdx()] / sigma_maj[lambda.ChannelIdx()];
                     Float pNull = std::max<Float>(0, 1 - pAbsorb - pScatter);
@@ -2054,7 +2052,7 @@ int RandomWalk(const Integrator &integrator, SampledWavelengths &lambda,
                     if (mode == 0) {
 #endif
                         // Handle scattering for _RandomWalk()_ ray
-#if defined(VOLUME_ABSORB)
+#if defined(PBRT_VOLUME_ABSORPTION_EVENTS)
                         beta *= T_maj * mp.sigma_s / (T_maj[lambda.ChannelIdx()] * mp.sigma_s[lambda.ChannelIdx()]);
 #else
                         beta *= T_maj * mp.sigma_s / (T_maj[lambda.ChannelIdx()] * sigma_t[lambda.ChannelIdx()]);
@@ -4488,7 +4486,7 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
                     }
 
                     // Compute medium event probabilities for interaction
-#if defined(VOLUME_ABSORB)
+#if defined(PBRT_VOLUME_ABSORPTION_EVENTS)
                     Float pAbsorb = mp.sigma_a[lambda.ChannelIdx()] / sigma_maj[lambda.ChannelIdx()];
                     Float pScatter = mp.sigma_s[lambda.ChannelIdx()] / sigma_maj[lambda.ChannelIdx()];
                     Float pNull = std::max<Float>(0, 1 - pAbsorb - pScatter);
@@ -4534,7 +4532,7 @@ SampledSpectrum GuidedVolPathIntegrator::Li(Point2i pPixel, RayDifferential ray,
                         }
 
                         // Update _beta_ and _r_u_ for real-scattering event
-#if defined(VOLUME_ABSORB)
+#if defined(PBRT_VOLUME_ABSORPTION_EVENTS)
                         Float pdf = T_maj[lambda.ChannelIdx()] * mp.sigma_s[lambda.ChannelIdx()];
                         beta *= T_maj * mp.sigma_s / pdf;
                         r_u *= T_maj * mp.sigma_s / pdf;

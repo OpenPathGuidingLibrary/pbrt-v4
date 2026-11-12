@@ -95,7 +95,7 @@ void WavefrontPathIntegrator::SampleMediumInteraction(int wavefrontDepth) {
                             L += beta * mp.sigma_a * T_maj * mp.Le /
                                  (pr * r_e.Average());
                     }
-
+#if defined(PBRT_VOLUME_ABSORPTION_EVENTS)
                     // Compute probabilities for each type of scattering.
                     Float pAbsorb = mp.sigma_a[lambda.ChannelIdx()] / sigma_maj[lambda.ChannelIdx()];
                     Float pScatter = mp.sigma_s[lambda.ChannelIdx()] / sigma_maj[lambda.ChannelIdx()];
@@ -113,12 +113,28 @@ void WavefrontPathIntegrator::SampleMediumInteraction(int wavefrontDepth) {
                         // Tell the medium to stop traversal.
                         return false;
                     } else if (mode == 1) {
+#else
+                    SampledSpectrum sigma_t = mp.sigma_a + mp.sigma_s;
+                    SampledSpectrum albedo = mp.sigma_s / sigma_t;
+                    Float pScatter = sigma_t[lambda.ChannelIdx()] / sigma_maj[lambda.ChannelIdx()];
+                    Float pNull = std::max<Float>(0, 1 - pScatter);
+                    CHECK_GE(1 - pScatter, -1e-6);
+                    // Sample medium scattering event type and update path
+                    Float um = rng.Uniform<Float>();
+                    int mode = SampleDiscrete({pScatter, pNull}, um);
+                    if (mode == 0) {
+#endif  
                         // Scattering.
+#if defined(PBRT_VOLUME_ABSORPTION_EVENTS)
                         PBRT_DBG("scattered\n");
                         Float pr = T_maj[lambda.ChannelIdx()] * mp.sigma_s[lambda.ChannelIdx()];
                         beta *= T_maj * mp.sigma_s / pr;
                         r_u *= T_maj * mp.sigma_s / pr;
-
+#else
+                        Float pr = T_maj[lambda.ChannelIdx()] * sigma_t[lambda.ChannelIdx()];
+                        beta *= T_maj * mp.sigma_s / pr;
+                        r_u *= T_maj * sigma_t / pr;
+#endif
                         // Enqueue medium scattering work.
                         auto enqueue = [=](auto ptr) {
                             using PhaseFunction = typename std::remove_const_t<
